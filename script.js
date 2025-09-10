@@ -22,6 +22,7 @@ class BusinessReportApp {
         this.loadData();
         this.setupEventListeners();
         this.setDefaultDates();
+        this.loadLastSession();
         this.updatePreview();
         this.initTheme();
         this.updateCurrentDate();
@@ -59,8 +60,14 @@ class BusinessReportApp {
     // イベントリスナー設定
     setupEventListeners() {
         // 日付変更
-        document.getElementById('resultDate').addEventListener('change', () => this.updatePreview());
-        document.getElementById('planDate').addEventListener('change', () => this.updatePreview());
+        document.getElementById('resultDate').addEventListener('change', () => {
+            this.updatePreview();
+            this.saveCurrentSession();
+        });
+        document.getElementById('planDate').addEventListener('change', () => {
+            this.updatePreview();
+            this.saveCurrentSession();
+        });
 
         // 顧客・プロジェクト追加ボタン
         document.getElementById('addResultBtn').addEventListener('click', () => {
@@ -165,6 +172,16 @@ class BusinessReportApp {
             container.addEventListener('blur', (e) => {
                 if (e.target.classList.contains('customer-input') || e.target.classList.contains('task-input-main')) {
                     this.hideAutocomplete(e.target);
+                    // 入力内容変更時にセッション保存
+                    this.saveCurrentSession();
+                }
+            }, true);
+            
+            // イベント委譲で詳細入力の変更を処理
+            container.addEventListener('blur', (e) => {
+                if (e.target.classList.contains('task-input-sub')) {
+                    // 詳細入力変更時にもセッション保存
+                    this.saveCurrentSession();
                 }
             }, true);
         });
@@ -570,6 +587,7 @@ class BusinessReportApp {
         this.saveCurrentReport(markdown);
         this.updateUsageStats();
         this.saveData();
+        this.saveCurrentSession();
         this.updateHistoryList();
         
         alert('レポートを保存しました。');
@@ -650,6 +668,9 @@ class BusinessReportApp {
     // フォームクリア
     clearForm() {
         if (confirm('入力内容をクリアしますか？')) {
+            // セッション削除
+            localStorage.removeItem('lastSession');
+            
             // 実績・予定コンテナをリセット
             ['resultsContainer', 'plansContainer'].forEach(containerId => {
                 const container = document.getElementById(containerId);
@@ -719,71 +740,15 @@ class BusinessReportApp {
             return;
         }
         
-        // フォームに読み込み
-        document.getElementById('resultDate').value = report.resultDate;
-        document.getElementById('planDate').value = report.planDate;
-        
-        this.loadReportData('resultsContainer', report.results);
-        this.loadReportData('plansContainer', report.plans);
-        
-        this.updateSortButtonStates();
-        this.updatePreview();
-    }
-
-    // レポートデータをフォームに読み込み
-    loadReportData(containerId, data) {
-        const container = document.getElementById(containerId);
-        container.innerHTML = '';
-        
-        data.forEach((item, index) => {
-            if (index === 0) {
-                // 最初のアイテムグループを作成
-                this.addItemGroup(containerId);
-            } else {
-                // 追加のアイテムグループを作成
-                this.addItemGroup(containerId);
-            }
-            
-            const itemGroups = container.querySelectorAll('.item-group');
-            const currentGroup = itemGroups[index];
-            
-            // 顧客名設定
-            const customerInput = currentGroup.querySelector('.customer-input');
-            customerInput.value = item.customer;
-            
-            // イベント委譲により自動的に処理される
-            
-            // タスク設定
-            const tasksContainer = currentGroup.querySelector('.tasks-container');
-            tasksContainer.innerHTML = '';
-            
-            item.tasks.forEach((task, taskIndex) => {
-                const taskWrapper = document.createElement('div');
-                taskWrapper.className = 'task-input-wrapper';
-                
-                // タスクテキストから本体と括弧内を分離
-                const match = task.match(/^(.+?)\((.+?)\)$/);
-                const mainText = match ? match[1] : task;
-                const subText = match ? match[2] : '';
-                
-                const isResult = containerId === 'resultsContainer';
-                taskWrapper.innerHTML = `
-                    <div class="task-inputs">
-                        <input type="text" class="task-input-main" placeholder="項目" value="${mainText}">
-                        <input type="text" class="task-input-sub" placeholder="(詳細)" value="${subText}">
-                        <button type="button" class="btn btn-icon move-up-task" title="上に移動">↑</button>
-                        <button type="button" class="btn btn-icon move-down-task" title="下に移動">↓</button>
-                        <button type="button" class="btn btn-icon ${isResult ? 'move-task-to-plan' : 'move-task-to-result'}" title="${isResult ? '予定に移動' : '実績に移動'}">${isResult ? '→' : '←'}</button>
-                        <button type="button" class="btn btn-icon delete-task" title="項目削除">×</button>
-                    </div>
-                    <div class="autocomplete-list"></div>
-                `;
-                tasksContainer.appendChild(taskWrapper);
-                
-                // イベント委譲により自動的に処理される
-            });
+        // レポートデータを読み込み
+        this.loadReportData({
+            resultDate: report.resultDate,
+            planDate: report.planDate,
+            results: report.results || [],
+            plans: report.plans || []
         });
     }
+
 
     // 過去レポートダウンロード
     downloadHistory() {
@@ -986,14 +951,18 @@ class BusinessReportApp {
     // レポートデータ読み込み
     loadReportData(data) {
         // 日付設定
-        document.getElementById('resultDate').value = data.resultDate;
-        document.getElementById('planDate').value = data.planDate;
+        if (data.resultDate) {
+            document.getElementById('resultDate').value = data.resultDate;
+        }
+        if (data.planDate) {
+            document.getElementById('planDate').value = data.planDate;
+        }
         
         // 既存のコンテナをクリア
         this.clearContainers();
         
         // 実績データ読み込み
-        if (data.results.length > 0) {
+        if (data.results && data.results.length > 0) {
             const resultsContainer = document.getElementById('resultsContainer');
             resultsContainer.innerHTML = '';
             
@@ -1003,7 +972,7 @@ class BusinessReportApp {
         }
         
         // 予定データ読み込み
-        if (data.plans.length > 0) {
+        if (data.plans && data.plans.length > 0) {
             const plansContainer = document.getElementById('plansContainer');
             plansContainer.innerHTML = '';
             
@@ -1642,6 +1611,68 @@ class BusinessReportApp {
         icon.textContent = theme === 'dark' ? '☀️' : '🌙';
     }
     
+    // セッション保存
+    saveCurrentSession() {
+        const sessionData = {
+            resultDate: document.getElementById('resultDate').value,
+            planDate: document.getElementById('planDate').value,
+            results: this.getInputData('resultsContainer'),
+            plans: this.getInputData('plansContainer'),
+            timestamp: new Date().toISOString()
+        };
+        localStorage.setItem('lastSession', JSON.stringify(sessionData));
+    }
+
+    // セッション読み込み
+    loadLastSession() {
+        const savedSession = localStorage.getItem('lastSession');
+        if (!savedSession) return;
+        
+        try {
+            const sessionData = JSON.parse(savedSession);
+            
+            // 日付設定
+            if (sessionData.resultDate) {
+                document.getElementById('resultDate').value = sessionData.resultDate;
+            }
+            if (sessionData.planDate) {
+                document.getElementById('planDate').value = sessionData.planDate;
+            }
+            
+            // セッション復元
+            this.restoreSessionData(sessionData);
+            
+        } catch (error) {
+            console.warn('セッションデータの読み込みに失敗しました:', error);
+        }
+    }
+
+    // セッションデータ復元
+    restoreSessionData(data) {
+        // コンテナクリア
+        this.clearContainers();
+        
+        // 実績データ復元
+        if (data.results && data.results.length > 0) {
+            const resultsContainer = document.getElementById('resultsContainer');
+            resultsContainer.innerHTML = '';
+            
+            data.results.forEach(item => {
+                this.addItemGroupWithData(resultsContainer, item, true);
+            });
+        }
+        
+        // 予定データ復元
+        if (data.plans && data.plans.length > 0) {
+            const plansContainer = document.getElementById('plansContainer');
+            plansContainer.innerHTML = '';
+            
+            data.plans.forEach(item => {
+                this.addItemGroupWithData(plansContainer, item, false);
+            });
+        }
+    }
+
     // 現在の日付を更新
     updateCurrentDate() {
         const now = new Date();
