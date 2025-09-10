@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>業務報告作成</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>業務報告作成</h1>
+            <div class="header-right">
+                <div id="currentDate" class="current-date"></div>
+                <button id="themeToggle" class="theme-toggle" title="ダークモード切り替え">
+                    <span class="theme-icon">🌙</span>
+                </button>
+                <a href="https://github.com/ytx/b_report" target="_blank" class="theme-toggle github-link" title="GitHub">
+                    <span class="theme-icon">🐱</span>
+                </a>
+            </div>
+        </header>
+
+        <main class="main-content">
+            <!-- 左側: 入力エリア -->
+            <div class="left-panel">
+                <!-- 実績入力セクション -->
+                <section class="input-section">
+                    <div class="section-header">
+                        <h2>実績</h2>
+                        <div class="date-group">
+                            <label for="resultDate">実績日:</label>
+                            <input type="date" id="resultDate" class="date-input">
+                        </div>
+                    </div>
+                    <div id="resultsContainer" class="items-container">
+                        <div class="item-group">
+                            <div class="item-controls">
+                                <button type="button" class="btn btn-icon move-up-project" title="上に移動">↑</button>
+                                <button type="button" class="btn btn-icon move-down-project" title="下に移動">↓</button>
+                                <button type="button" class="btn btn-icon move-to-plan" title="予定に移動">→</button>
+                                <button type="button" class="btn btn-icon delete-item" title="削除">×</button>
+                            </div>
+                            <div class="customer-input-wrapper">
+                                <input type="text" class="customer-input" placeholder="顧客・プロジェクト名">
+                                <div class="autocomplete-list"></div>
+                            </div>
+                            <div class="tasks-container">
+                                <div class="task-input-wrapper">
+                                    <div class="task-inputs">
+                                        <input type="text" class="task-input-main" placeholder="実施項目">
+                                        <input type="text" class="task-input-sub" placeholder="(詳細)">
+                                        <button type="button" class="btn btn-icon move-up-task" title="上に移動">↑</button>
+                                        <button type="button" class="btn btn-icon move-down-task" title="下に移動">↓</button>
+                                        <button type="button" class="btn btn-icon move-task-to-plan" title="予定に移動">→</button>
+                                        <button type="button" class="btn btn-icon delete-task" title="項目削除">×</button>
+                                    </div>
+                                    <div class="autocomplete-list"></div>
+                                </div>
+                            </div>
+                            <button type="button" class="btn btn-small add-task-btn">項目追加</button>
+                        </div>
+                    </div>
+                    <button type="button" id="addResultBtn" class="btn btn-primary">顧客・プロジェクト追加</button>
+                </section>
+
+                <!-- 予定入力セクション -->
+                <section class="input-section">
+                    <div class="section-header">
+                        <h2>予定</h2>
+                        <div class="date-group">
+                            <label for="planDate">予定開始日:</label>
+                            <input type="date" id="planDate" class="date-input">
+                        </div>
+                    </div>
+                    <div id="plansContainer" class="items-container">
+                        <div class="item-group">
+                            <div class="item-controls">
+                                <button type="button" class="btn btn-icon move-up-project" title="上に移動">↑</button>
+                                <button type="button" class="btn btn-icon move-down-project" title="下に移動">↓</button>
+                                <button type="button" class="btn btn-icon move-to-result" title="実績に移動">←</button>
+                                <button type="button" class="btn btn-icon delete-item" title="削除">×</button>
+                            </div>
+                            <div class="customer-input-wrapper">
+                                <input type="text" class="customer-input" placeholder="顧客・プロジェクト名">
+                                <div class="autocomplete-list"></div>
+                            </div>
+                            <div class="tasks-container">
+                                <div class="task-input-wrapper">
+                                    <div class="task-inputs">
+                                        <input type="text" class="task-input-main" placeholder="予定項目">
+                                        <input type="text" class="task-input-sub" placeholder="(詳細)">
+                                        <button type="button" class="btn btn-icon move-up-task" title="上に移動">↑</button>
+                                        <button type="button" class="btn btn-icon move-down-task" title="下に移動">↓</button>
+                                        <button type="button" class="btn btn-icon move-task-to-result" title="実績に移動">←</button>
+                                        <button type="button" class="btn btn-icon delete-task" title="項目削除">×</button>
+                                    </div>
+                                    <div class="autocomplete-list"></div>
+                                </div>
+                            </div>
+                            <button type="button" class="btn btn-small add-task-btn">項目追加</button>
+                        </div>
+                    </div>
+                    <button type="button" id="addPlanBtn" class="btn btn-primary">顧客・プロジェクト追加</button>
+                </section>
+            </div>
+
+            <!-- 右側: プレビューと管理エリア -->
+            <div class="right-panel">
+                <!-- プレビューセクション -->
+                <section class="preview-section">
+                    <div class="section-header">
+                        <h2>プレビュー</h2>
+                        <div class="action-buttons">
+                            <button id="copyBtn" class="btn btn-success">コピー & 保存</button>
+                            <button id="clearBtn" class="btn btn-danger">クリア</button>
+                        </div>
+                    </div>
+                    <div class="preview-container">
+                        <pre id="markdownPreview" class="markdown-preview"></pre>
+                    </div>
+                </section>
+
+                <!-- 過去レポート選択セクション -->
+                <section class="history-section">
+                    <h2>過去のレポート</h2>
+                    <div class="history-controls">
+                        <select id="historySelect" class="history-select">
+                            <option value="">レポートを選択...</option>
+                        </select>
+                        <div class="history-buttons">
+                            <button id="loadHistoryBtn" class="btn btn-secondary">読み込み</button>
+                            <button id="deleteHistoryBtn" class="btn btn-danger">削除</button>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 設定管理セクション -->
+                <section class="settings-section">
+                    <h2>設定管理</h2>
+                    <div class="settings-controls">
+                        <button id="editSettingsBtn" class="btn btn-primary">設定編集</button>
+                        <button id="exportBtn" class="btn btn-secondary">エクスポート</button>
+                        <button id="importBtn" class="btn btn-secondary">インポート</button>
+                        <input type="file" id="importFile" accept=".json,.md" style="display: none;">
+                    </div>
+                    
+                </section>
+            </div>
+        </main>
+    </div>
+
+    <!-- 設定編集モーダル -->
+    <div id="settingsModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>設定データ編集</h2>
+                <button id="closeModalBtn" class="btn btn-icon close-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <textarea id="settingsTextarea" class="settings-textarea" placeholder="設定データがここに表示されます..."></textarea>
+            </div>
+            <div class="modal-footer">
+                <button id="saveSettingsBtn" class="btn btn-success">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

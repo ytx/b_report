@@ -1,0 +1,852 @@
+:root {
+    /* Light theme */
+    --bg-primary: #ffffff;
+    --bg-secondary: #f5f5f5;
+    --bg-tertiary: #f8f9fa;
+    --text-primary: #333333;
+    --text-secondary: #495057;
+    --text-muted: #6c757d;
+    --border-color: #e9ecef;
+    --border-color-light: #ced4da;
+    --shadow: rgba(0, 0, 0, 0.1);
+    --shadow-strong: rgba(0, 0, 0, 0.15);
+}
+
+[data-theme="dark"] {
+    /* Dark theme */
+    --bg-primary: #2d3748;
+    --bg-secondary: #1a202c;
+    --bg-tertiary: #4a5568;
+    --text-primary: #e2e8f0;
+    --text-secondary: #cbd5e0;
+    --text-muted: #a0aec0;
+    --border-color: #4a5568;
+    --border-color-light: #718096;
+    --shadow: rgba(0, 0, 0, 0.3);
+    --shadow-strong: rgba(0, 0, 0, 0.5);
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    line-height: 1.6;
+    color: var(--text-primary);
+    background-color: var(--bg-secondary);
+    transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+.container {
+    width: 100%;
+    margin: 0;
+    padding: 20px;
+    background-color: var(--bg-primary);
+    min-height: 100vh;
+    transition: background-color 0.3s ease;
+}
+
+/* Header */
+header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 30px;
+    padding-bottom: 20px;
+    border-bottom: 2px solid var(--border-color);
+    position: relative;
+}
+
+header h1 {
+    color: var(--text-primary);
+    font-size: 2rem;
+    flex: 1;
+}
+
+/* Header Right Section */
+.header-right {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.current-date {
+    font-size: 14px;
+    color: var(--text-secondary);
+    font-weight: 500;
+    padding: 8px 12px;
+    background-color: var(--bg-tertiary);
+    border-radius: 20px;
+    border: 1px solid var(--border-color);
+    transition: all 0.3s ease;
+}
+
+/* Theme Toggle Button */
+.theme-toggle {
+    width: 40px;
+    height: 40px;
+    border: 2px solid var(--border-color);
+    border-radius: 50%;
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+    cursor: pointer;
+    font-size: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+    z-index: 100;
+}
+
+.theme-toggle:hover {
+    background-color: #007bff;
+    color: white;
+    border-color: #007bff;
+    transform: scale(1.1);
+}
+
+.theme-toggle:active {
+    transform: scale(0.95);
+}
+
+.github-link {
+    text-decoration: none;
+    color: inherit;
+}
+
+.github-link:hover {
+    background-color: #007bff;
+    color: white;
+    border-color: #007bff;
+    transform: scale(1.1);
+}
+
+.github-link:active {
+    transform: scale(0.95);
+}
+
+.theme-icon {
+    display: block;
+    line-height: 1;
+}
+
+.header-buttons {
+    display: flex;
+    gap: 10px;
+}
+
+/* Buttons */
+.btn {
+    padding: 8px 16px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    transition: background-color 0.3s ease;
+}
+
+.btn-primary {
+    background-color: #007bff;
+    color: white;
+}
+
+.btn-primary:hover {
+    background-color: #0056b3;
+}
+
+.btn-secondary {
+    background-color: #6c757d;
+    color: white;
+}
+
+.btn-secondary:hover {
+    background-color: #545b62;
+}
+
+.btn-success {
+    background-color: #28a745;
+    color: white;
+}
+
+.btn-success:hover {
+    background-color: #1e7e34;
+}
+
+.btn-danger {
+    background-color: #dc3545;
+    color: white;
+}
+
+.btn-danger:hover {
+    background-color: #c82333;
+}
+
+.btn-small {
+    padding: 4px 8px;
+    font-size: 12px;
+}
+
+/* Main Content Layout */
+.main-content {
+    display: flex;
+    gap: 20px;
+    height: calc(100vh - 120px);
+}
+
+.left-panel {
+    flex: 6;
+    overflow-y: auto;
+    padding-right: 20px;
+}
+
+.right-panel {
+    flex: 4;
+    overflow-y: auto;
+    padding-left: 20px;
+}
+
+/* Section Header */
+.section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.date-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.date-group label {
+    font-weight: 600;
+    color: var(--text-secondary);
+}
+
+.date-input {
+    padding: 8px 12px;
+    border: 1px solid var(--border-color-light);
+    border-radius: 4px;
+    font-size: 14px;
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+    transition: all 0.3s ease;
+}
+
+/* Input Sections */
+.input-section {
+    margin-bottom: 30px;
+    padding: 20px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background-color: var(--bg-primary);
+    transition: background-color 0.3s ease;
+}
+
+.input-section h2 {
+    margin-bottom: 20px;
+    color: var(--text-primary);
+    font-size: 1.5rem;
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 10px;
+}
+
+.items-container {
+    margin-bottom: 15px;
+}
+
+.item-group {
+    margin-bottom: 20px;
+    padding: 15px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    background-color: var(--bg-tertiary);
+    position: relative;
+    transition: background-color 0.3s ease;
+}
+
+/* Item Controls */
+.item-controls {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    display: flex;
+    gap: 5px;
+    z-index: 10;
+}
+
+.btn-icon {
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    font-size: 12px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: #6c757d;
+    color: white;
+    border: none;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    z-index: 10;
+}
+
+.btn-icon:hover {
+    background-color: #545b62;
+    transform: scale(1.1);
+}
+
+.delete-item {
+    background-color: #dc3545;
+}
+
+.delete-item:hover {
+    background-color: #c82333;
+}
+
+.move-to-plan,
+.move-to-result {
+    background-color: #007bff;
+}
+
+.move-to-plan:hover,
+.move-to-result:hover {
+    background-color: #0056b3;
+}
+
+.customer-input-wrapper,
+.task-input-wrapper {
+    position: relative;
+    margin-bottom: 10px;
+}
+
+.customer-input,
+.task-input-main,
+.task-input-sub {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid var(--border-color-light);
+    border-radius: 4px;
+    font-size: 14px;
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+    transition: all 0.3s ease;
+}
+
+.customer-input:focus,
+.task-input-main:focus,
+.task-input-sub:focus {
+    outline: none;
+    border-color: #007bff;
+    box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+}
+
+/* Task Input Layout */
+.task-inputs {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    position: relative;
+    padding-right: 127px; /* プロジェクトコントロールと同じ幅を確保: 右端10px + ボタン4個分(24px*4) + 間隔3個分(5px*3) = 10 + 96 + 15 = 121px + 余裕6px = 127px */
+}
+
+.task-input-main {
+    flex: 2;
+}
+
+.task-input-sub {
+    flex: 1;
+    background-color: var(--bg-tertiary);
+}
+
+/* タスクコントロールボタンの配置 */
+.task-inputs .btn-icon {
+    position: absolute;
+    right: 0;
+}
+
+.task-inputs .move-up-task {
+    right: 97px; /* 10px + 24px*3 + 5px*3 = 10 + 72 + 15 = 97px */
+}
+
+.task-inputs .move-down-task {
+    right: 68px; /* 10px + 24px*2 + 5px*2 = 10 + 48 + 10 = 68px */
+}
+
+.task-inputs .move-task-to-plan,
+.task-inputs .move-task-to-result {
+    right: 39px; /* 10px + 24px*1 + 5px*1 = 10 + 24 + 5 = 39px */
+}
+
+.task-inputs .delete-task {
+    right: 10px; /* プロジェクトと同じ右端からの距離 */
+}
+
+.move-up-project,
+.move-down-project,
+.move-up-task,
+.move-down-task {
+    background-color: #28a745;
+    flex-shrink: 0;
+}
+
+.move-up-project:hover,
+.move-down-project:hover,
+.move-up-task:hover,
+.move-down-task:hover {
+    background-color: #1e7e34;
+}
+
+.move-up-project:disabled,
+.move-down-project:disabled,
+.move-up-task:disabled,
+.move-down-task:disabled {
+    background-color: #6c757d;
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.move-up-project:disabled:hover,
+.move-down-project:disabled:hover,
+.move-up-task:disabled:hover,
+.move-down-task:disabled:hover {
+    background-color: #6c757d;
+    transform: none;
+}
+
+.move-task-to-plan,
+.move-task-to-result {
+    background-color: #007bff;
+    flex-shrink: 0;
+}
+
+.move-task-to-plan:hover,
+.move-task-to-result:hover {
+    background-color: #0056b3;
+}
+
+.delete-task {
+    background-color: #dc3545;
+    flex-shrink: 0;
+}
+
+.delete-task:hover {
+    background-color: #c82333;
+}
+
+.tasks-container {
+    margin-left: 20px;
+    /* margin-rightを削除して、右端をitem-groupと揃える */
+}
+
+.add-task-btn {
+    margin-top: 10px;
+}
+
+/* Autocomplete */
+.autocomplete-list {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background-color: var(--bg-primary);
+    border: 1px solid var(--border-color-light);
+    border-top: none;
+    border-radius: 0 0 4px 4px;
+    max-height: 200px;
+    overflow-y: auto;
+    z-index: 1000;
+    display: none;
+    transition: background-color 0.3s ease;
+}
+
+.autocomplete-item {
+    padding: 10px 12px;
+    cursor: pointer;
+    border-bottom: 1px solid var(--border-color);
+    color: var(--text-primary);
+    transition: all 0.3s ease;
+}
+
+.autocomplete-item:last-child {
+    border-bottom: none;
+}
+
+.autocomplete-item:hover,
+.autocomplete-item.selected {
+    background-color: #007bff;
+    color: white;
+}
+
+/* Preview Section */
+.preview-section {
+    margin-bottom: 30px;
+    padding: 20px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background-color: var(--bg-primary);
+    transition: background-color 0.3s ease;
+}
+
+.preview-section h2 {
+    margin-bottom: 20px;
+    color: var(--text-primary);
+    font-size: 1.5rem;
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 10px;
+}
+
+/* Settings Section */
+.settings-section {
+    margin-bottom: 30px;
+    padding: 20px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background-color: var(--bg-primary);
+    transition: background-color 0.3s ease;
+}
+
+.settings-section h2 {
+    margin-bottom: 20px;
+    color: var(--text-primary);
+    font-size: 1.5rem;
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 10px;
+}
+
+.settings-controls {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+}
+
+/* Modal Styles */
+.modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.modal-content {
+    background-color: var(--bg-primary);
+    border-radius: 8px;
+    box-shadow: 0 4px 20px var(--shadow-strong);
+    width: 90%;
+    max-width: 800px;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+    transition: background-color 0.3s ease;
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.modal-header h2 {
+    margin: 0;
+    color: var(--text-primary);
+    font-size: 1.5rem;
+}
+
+.close-btn {
+    width: 32px;
+    height: 32px;
+    font-size: 20px;
+    background-color: #dc3545;
+    color: white;
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.close-btn:hover {
+    background-color: #c82333;
+}
+
+.modal-body {
+    padding: 20px;
+    flex: 1;
+    overflow-y: auto;
+}
+
+.modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    padding: 20px;
+    border-top: 1px solid var(--border-color);
+}
+
+.settings-textarea {
+    width: 100%;
+    min-height: 400px;
+    padding: 15px;
+    border: 1px solid var(--border-color-light);
+    border-radius: 4px;
+    font-family: 'Courier New', monospace;
+    font-size: 14px;
+    line-height: 1.5;
+    resize: vertical;
+    background-color: var(--bg-tertiary);
+    color: var(--text-primary);
+    transition: all 0.3s ease;
+}
+
+.settings-textarea:focus {
+    outline: none;
+    border-color: #007bff;
+    box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+}
+
+.preview-container {
+    margin-bottom: 0;
+}
+
+.markdown-preview {
+    background-color: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    padding: 15px;
+    font-family: 'Courier New', monospace;
+    font-size: 14px;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    min-height: 200px;
+    max-height: 400px;
+    overflow-y: auto;
+    color: var(--text-primary);
+    transition: all 0.3s ease;
+}
+
+.action-buttons {
+    display: flex;
+    gap: 10px;
+}
+
+/* History Section */
+.history-section {
+    margin-bottom: 30px;
+    padding: 20px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background-color: var(--bg-primary);
+    transition: background-color 0.3s ease;
+}
+
+.history-section h2 {
+    margin-bottom: 20px;
+    color: var(--text-primary);
+    font-size: 1.5rem;
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 10px;
+}
+
+.history-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.history-select {
+    padding: 8px 12px;
+    border: 1px solid var(--border-color-light);
+    border-radius: 4px;
+    font-size: 14px;
+    width: 100%;
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+    transition: all 0.3s ease;
+}
+
+.history-buttons {
+    display: flex;
+    gap: 10px;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .container {
+        padding: 10px;
+    }
+
+    .main-content {
+        flex-direction: column;
+        height: auto;
+    }
+
+    .left-panel,
+    .right-panel {
+        flex: 1;
+        padding: 0;
+        overflow-y: visible;
+    }
+    
+    /* オートコンプリートのドロップダウンをモバイルで正しく表示 */
+    .task-input-wrapper .autocomplete-list {
+        position: absolute;
+        top: 40px;
+        left: 0;
+        right: 0;
+        z-index: 1000;
+    }
+    
+    .customer-input-wrapper .autocomplete-list {
+        position: absolute;
+        top: 40px;
+        left: 0;
+        right: 0;
+        z-index: 1000;
+    }
+
+    .section-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+    }
+
+    .date-group {
+        width: 100%;
+    }
+
+    .header-buttons {
+        flex-direction: column;
+        gap: 5px;
+    }
+
+    .action-buttons,
+    .history-buttons,
+    .settings-controls {
+        flex-direction: column;
+    }
+    
+    .modal-content {
+        width: 95%;
+        max-width: none;
+        margin: 10px;
+    }
+    
+    .modal-header {
+        padding: 15px;
+    }
+    
+    .modal-body {
+        padding: 15px;
+    }
+    
+    .modal-footer {
+        padding: 15px;
+        flex-direction: column;
+    }
+    
+    .modal-footer .btn {
+        width: 100%;
+    }
+
+    .btn {
+        width: 100%;
+    }
+
+    .task-inputs {
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: wrap !important;
+        position: static;
+        padding-right: 0;
+        align-items: flex-start;
+    }
+
+    .task-input-main,
+    .task-input-sub {
+        flex: 1 1 calc(50% - 5px);
+        margin-bottom: 10px;
+        margin-right: 5px;
+    }
+
+    .task-input-sub {
+        margin-right: 0;
+    }
+
+    /* タスクコントロールボタンを横並びに強制 */
+    .task-inputs .btn-icon {
+        position: static !important;
+        right: auto !important;
+        flex: 0 0 auto !important;
+        order: 10;
+        margin: -2px 2px 12px 0 !important;
+        display: inline-flex !important;
+    }
+
+    .task-inputs .move-up-task,
+    .task-inputs .move-down-task,
+    .task-inputs .move-task-to-plan,
+    .task-inputs .move-task-to-result,
+    .task-inputs .delete-task {
+        right: auto !important;
+    }
+
+    /* ボタンコンテナを作成 */
+    .task-inputs::after {
+        content: '';
+        flex-basis: 100%;
+        height: 0;
+    }
+
+    /* モバイル用のタスクコントロール配置 */
+    .task-controls-mobile {
+        display: flex;
+        gap: 5px;
+        margin-top: 10px;
+        justify-content: flex-start;
+    }
+
+    /* プロジェクトコントロールのモバイル対応 */
+    .item-controls {
+        position: static;
+        top: auto;
+        right: auto;
+        margin-bottom: 10px;
+        justify-content: flex-start;
+    }
+
+    .item-group {
+        padding: 10px;
+        margin-bottom: 25px;
+    }
+
+    /* モバイル用ボタンサイズ調整 */
+    .btn-icon {
+        width: 32px;
+        height: 32px;
+        font-size: 14px;
+        margin: 2px;
+    }
+
+    /* モバイルでコントロールボタンを見やすく */
+    .btn-small {
+        width: 100%;
+        margin-top: 15px;
+        padding: 10px;
+    }
+}

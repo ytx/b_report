@@ -1,0 +1,1367 @@
+class BusinessReportApp {
+    constructor() {
+        this.data = {
+            customers: [],
+            tasks: [],
+            reports: []
+        };
+        this.currentReport = {
+            id: '',
+            resultDate: '',
+            planDate: '',
+            results: [],
+            plans: []
+        };
+        this.selectedIndex = -1;
+        this.currentAutocompleteInput = null;
+        
+        this.init();
+    }
+
+    init() {
+        this.loadData();
+        this.setupEventListeners();
+        this.setDefaultDates();
+        this.updatePreview();
+        this.initTheme();
+        this.updateCurrentDate();
+        this.updateSortButtonStates();
+    }
+
+    // データの読み込み
+    loadData() {
+        const savedData = localStorage.getItem('businessReportData');
+        if (savedData) {
+            this.data = JSON.parse(savedData);
+        }
+    }
+
+    // データの保存
+    saveData() {
+        localStorage.setItem('businessReportData', JSON.stringify(this.data));
+    }
+
+    // デフォルト日付設定
+    setDefaultDates() {
+        const today = new Date();
+        const yesterday = new Date(today);
+        yesterday.setDate(yesterday.getDate() - 1);
+        
+        document.getElementById('resultDate').value = this.formatDate(yesterday);
+        document.getElementById('planDate').value = this.formatDate(today);
+    }
+
+    // 日付フォーマット
+    formatDate(date) {
+        return date.toISOString().split('T')[0];
+    }
+
+    // イベントリスナー設定
+    setupEventListeners() {
+        // 日付変更
+        document.getElementById('resultDate').addEventListener('change', () => this.updatePreview());
+        document.getElementById('planDate').addEventListener('change', () => this.updatePreview());
+
+        // 顧客・プロジェクト追加ボタン
+        document.getElementById('addResultBtn').addEventListener('click', () => {
+            this.addItemGroup('resultsContainer');
+        });
+        document.getElementById('addPlanBtn').addEventListener('click', () => {
+            this.addItemGroup('plansContainer');
+        });
+
+        // コピー＆保存ボタン
+        document.getElementById('copyBtn').addEventListener('click', () => this.copyAndSave());
+
+        // クリアボタン
+        document.getElementById('clearBtn').addEventListener('click', () => this.clearForm());
+
+        // 設定管理ボタン
+        document.getElementById('editSettingsBtn').addEventListener('click', () => this.showSettingsEditor());
+        document.getElementById('exportBtn').addEventListener('click', () => this.exportData());
+        document.getElementById('importBtn').addEventListener('click', () => {
+            document.getElementById('importFile').click();
+        });
+        document.getElementById('importFile').addEventListener('change', (e) => this.importData(e));
+        
+        // 設定編集ボタン
+        document.getElementById('saveSettingsBtn').addEventListener('click', () => this.saveSettings());
+        document.getElementById('closeModalBtn').addEventListener('click', () => this.hideSettingsEditor());
+        
+        // テーマ切り替えボタン
+        document.getElementById('themeToggle').addEventListener('click', () => this.toggleTheme());
+
+        // 過去レポート関連
+        document.getElementById('loadHistoryBtn').addEventListener('click', () => this.loadHistory());
+        document.getElementById('deleteHistoryBtn').addEventListener('click', () => this.deleteHistory());
+
+        // 初期の入力フィールドにイベントを追加
+        this.setupInputEvents();
+        this.updateHistoryList();
+    }
+
+    // 入力フィールドのイベント設定（イベント委譲を使用）
+    setupInputEvents() {
+        const containers = ['resultsContainer', 'plansContainer'];
+        containers.forEach(containerId => {
+            const container = document.getElementById(containerId);
+            
+            // イベント委譲で削除ボタンのクリックを処理
+            container.addEventListener('click', (e) => {
+                if (e.target.classList.contains('delete-item')) {
+                    this.deleteItem(e.target);
+                } else if (e.target.classList.contains('move-to-plan') || e.target.classList.contains('move-to-result')) {
+                    this.moveItem(e.target);
+                } else if (e.target.classList.contains('move-up-project')) {
+                    this.moveProject(e.target, 'up');
+                } else if (e.target.classList.contains('move-down-project')) {
+                    this.moveProject(e.target, 'down');
+                } else if (e.target.classList.contains('delete-task')) {
+                    this.deleteTask(e.target);
+                } else if (e.target.classList.contains('move-task-to-plan') || e.target.classList.contains('move-task-to-result')) {
+                    this.moveTask(e.target);
+                } else if (e.target.classList.contains('move-up-task')) {
+                    this.moveTaskOrder(e.target, 'up');
+                } else if (e.target.classList.contains('move-down-task')) {
+                    this.moveTaskOrder(e.target, 'down');
+                } else if (e.target.classList.contains('add-task-btn')) {
+                    this.addTaskInput(e.target);
+                }
+            });
+            
+            // イベント委譲で入力フィールドのイベントを処理
+            container.addEventListener('input', (e) => {
+                if (e.target.classList.contains('customer-input')) {
+                    this.handleCustomerInput(e);
+                    this.updatePreview();
+                } else if (e.target.classList.contains('task-input-main')) {
+                    this.handleTaskInput(e);
+                    this.updatePreview();
+                } else if (e.target.classList.contains('task-input-sub')) {
+                    this.updatePreview();
+                }
+            });
+            
+            // イベント委譲でフォーカスイベントを処理
+            container.addEventListener('focus', (e) => {
+                if (e.target.classList.contains('customer-input')) {
+                    this.handleCustomerFocus(e);
+                } else if (e.target.classList.contains('task-input-main')) {
+                    this.handleTaskFocus(e);
+                }
+            }, true);
+            
+            // イベント委譲でキーダウンイベントを処理
+            container.addEventListener('keydown', (e) => {
+                if (e.target.classList.contains('customer-input') || e.target.classList.contains('task-input-main')) {
+                    this.handleKeydown(e);
+                }
+            });
+            
+            // イベント委譲でブラーイベントを処理
+            container.addEventListener('blur', (e) => {
+                if (e.target.classList.contains('customer-input') || e.target.classList.contains('task-input-main')) {
+                    this.hideAutocomplete(e.target);
+                }
+            }, true);
+        });
+    }
+
+
+    // 個別アイテムグループのイベント設定（イベント委譲を使用するため不要だが、動的生成時の互換性のため残す）
+    setupItemGroupEvents(itemGroup) {
+        // イベント委譲を使用しているため、ここでは何もしない
+        // この関数は動的に生成された要素との互換性のために残されている
+    }
+
+    // アイテムグループ追加
+    addItemGroup(containerId) {
+        const container = document.getElementById(containerId);
+        const itemGroup = document.createElement('div');
+        itemGroup.className = 'item-group';
+        const isResult = containerId === 'resultsContainer';
+        itemGroup.innerHTML = `
+            <div class="item-controls">
+                <button type="button" class="btn btn-icon move-up-project" title="上に移動">↑</button>
+                <button type="button" class="btn btn-icon move-down-project" title="下に移動">↓</button>
+                <button type="button" class="btn btn-icon ${isResult ? 'move-to-plan' : 'move-to-result'}" title="${isResult ? '予定に移動' : '実績に移動'}">${isResult ? '→' : '←'}</button>
+                <button type="button" class="btn btn-icon delete-item" title="削除">×</button>
+            </div>
+            <div class="customer-input-wrapper">
+                <input type="text" class="customer-input" placeholder="顧客・プロジェクト名">
+                <div class="autocomplete-list"></div>
+            </div>
+            <div class="tasks-container">
+                <div class="task-input-wrapper">
+                    <div class="task-inputs">
+                        <input type="text" class="task-input-main" placeholder="${isResult ? '実施' : '予定'}項目">
+                        <input type="text" class="task-input-sub" placeholder="(詳細)">
+                        <button type="button" class="btn btn-icon ${isResult ? 'move-task-to-plan' : 'move-task-to-result'}" title="${isResult ? '予定に移動' : '実績に移動'}">${isResult ? '→' : '←'}</button>
+                        <button type="button" class="btn btn-icon delete-task" title="項目削除">×</button>
+                    </div>
+                    <div class="autocomplete-list"></div>
+                </div>
+            </div>
+            <button type="button" class="btn btn-small add-task-btn">項目追加</button>
+        `;
+        
+        container.appendChild(itemGroup);
+        this.setupItemGroupEvents(itemGroup);
+        this.updateSortButtonStates();
+    }
+
+    // タスク入力フィールド追加
+    addTaskInput(addBtn) {
+        const itemGroup = addBtn.closest('.item-group');
+        const tasksContainer = itemGroup.querySelector('.tasks-container');
+        const container = itemGroup.closest('.items-container');
+        const isResult = container.id === 'resultsContainer';
+        
+        const taskWrapper = document.createElement('div');
+        taskWrapper.className = 'task-input-wrapper';
+        
+        taskWrapper.innerHTML = `
+            <div class="task-inputs">
+                <input type="text" class="task-input-main" placeholder="項目">
+                <input type="text" class="task-input-sub" placeholder="(詳細)">
+                <button type="button" class="btn btn-icon move-up-task" title="上に移動">↑</button>
+                <button type="button" class="btn btn-icon move-down-task" title="下に移動">↓</button>
+                <button type="button" class="btn btn-icon ${isResult ? 'move-task-to-plan' : 'move-task-to-result'}" title="${isResult ? '予定に移動' : '実績に移動'}">${isResult ? '→' : '←'}</button>
+                <button type="button" class="btn btn-icon delete-task" title="項目削除">×</button>
+            </div>
+            <div class="autocomplete-list"></div>
+        `;
+        
+        tasksContainer.appendChild(taskWrapper);
+        
+        // イベント委譲により自動的にイベントが処理されるため、個別設定は不要
+        const newMainInput = taskWrapper.querySelector('.task-input-main');
+        newMainInput.focus();
+        this.updateSortButtonStates();
+    }
+
+    // 顧客フォーカス処理
+    handleCustomerFocus(e) {
+        const input = e.target;
+        if (!input.value.trim()) {
+            // 入力が空の場合、最新10件を表示
+            const recent = this.data.customers
+                .sort((a, b) => {
+                    if (b.useCount !== a.useCount) {
+                        return b.useCount - a.useCount;
+                    }
+                    return new Date(b.lastUsed) - new Date(a.lastUsed);
+                })
+                .slice(0, 10);
+            
+            this.showAutocomplete(input, recent.map(m => m.name));
+        }
+    }
+
+    // 顧客入力処理
+    handleCustomerInput(e) {
+        const input = e.target;
+        const value = input.value.toLowerCase();
+        
+        if (value.length > 0) {
+            const matches = this.data.customers
+                .filter(customer => customer.name.toLowerCase().includes(value))
+                .sort((a, b) => {
+                    // 使用回数順、次に最終使用日順
+                    if (b.useCount !== a.useCount) {
+                        return b.useCount - a.useCount;
+                    }
+                    return new Date(b.lastUsed) - new Date(a.lastUsed);
+                })
+                .slice(0, 10);
+            
+            this.showAutocomplete(input, matches.map(m => m.name));
+        } else {
+            this.hideAutocomplete(input);
+        }
+    }
+
+    // タスクフォーカス処理
+    handleTaskFocus(e) {
+        const input = e.target;
+        if (!input.value.trim()) {
+            // 入力が空の場合、最新10件を表示
+            const recent = this.data.tasks
+                .sort((a, b) => {
+                    if (b.useCount !== a.useCount) {
+                        return b.useCount - a.useCount;
+                    }
+                    return new Date(b.lastUsed) - new Date(a.lastUsed);
+                })
+                .slice(0, 10);
+            
+            this.showAutocomplete(input, recent.map(m => m.text));
+        }
+    }
+
+    // タスク入力処理
+    handleTaskInput(e) {
+        const input = e.target;
+        const value = input.value.toLowerCase();
+        
+        if (value.length > 0) {
+            const matches = this.data.tasks
+                .filter(task => task.text.toLowerCase().includes(value))
+                .sort((a, b) => {
+                    if (b.useCount !== a.useCount) {
+                        return b.useCount - a.useCount;
+                    }
+                    return new Date(b.lastUsed) - new Date(a.lastUsed);
+                })
+                .slice(0, 10);
+            
+            this.showAutocomplete(input, matches.map(m => m.text));
+        } else {
+            this.hideAutocomplete(input);
+        }
+    }
+
+    // キーボード操作処理
+    handleKeydown(e) {
+        const input = e.target;
+        // タスク入力の場合は.task-input-wrapper、顧客入力の場合は.customer-input-wrapper
+        const wrapper = input.closest('.task-input-wrapper') || input.closest('.customer-input-wrapper');
+        const list = wrapper.querySelector('.autocomplete-list');
+        
+        if (list.style.display === 'none' || list.children.length === 0) {
+            return;
+        }
+        
+        const items = Array.from(list.children);
+        
+        // Ctrl+N または 下矢印
+        if ((e.ctrlKey && e.key === 'n') || e.key === 'ArrowDown') {
+            e.preventDefault();
+            this.selectedIndex = Math.min(this.selectedIndex + 1, items.length - 1);
+            this.updateSelection(items);
+            this.currentAutocompleteInput = input;
+        }
+        // Ctrl+P または 上矢印
+        else if ((e.ctrlKey && e.key === 'p') || e.key === 'ArrowUp') {
+            e.preventDefault();
+            this.selectedIndex = Math.max(this.selectedIndex - 1, 0);
+            this.updateSelection(items);
+            this.currentAutocompleteInput = input;
+        }
+        // Enter
+        else if (e.key === 'Enter' && this.selectedIndex >= 0) {
+            e.preventDefault();
+            const selectedItem = items[this.selectedIndex];
+            if (selectedItem) {
+                input.value = selectedItem.textContent;
+                this.hideAutocomplete(input);
+                this.updatePreview();
+            }
+        }
+        // Escape
+        else if (e.key === 'Escape') {
+            e.preventDefault();
+            this.hideAutocomplete(input);
+        }
+    }
+
+    // 選択状態の更新
+    updateSelection(items) {
+        items.forEach((item, index) => {
+            if (index === this.selectedIndex) {
+                item.classList.add('selected');
+            } else {
+                item.classList.remove('selected');
+            }
+        });
+    }
+
+    // オートコンプリート表示
+    showAutocomplete(input, items) {
+        const wrapper = input.closest('.task-input-wrapper') || input.closest('.customer-input-wrapper');
+        const list = wrapper.querySelector('.autocomplete-list');
+        
+        if (items.length === 0) {
+            list.style.display = 'none';
+            this.selectedIndex = -1;
+            return;
+        }
+        
+        list.innerHTML = '';
+        this.selectedIndex = -1;
+        this.currentAutocompleteInput = input;
+        
+        items.forEach((item, index) => {
+            const div = document.createElement('div');
+            div.className = 'autocomplete-item';
+            div.textContent = item;
+            div.addEventListener('mousedown', (e) => {
+                e.preventDefault();
+                input.value = item;
+                this.hideAutocomplete(input);
+                this.updatePreview();
+            });
+            div.addEventListener('mouseenter', () => {
+                this.selectedIndex = index;
+                this.updateSelection(Array.from(list.children));
+            });
+            list.appendChild(div);
+        });
+        
+        list.style.display = 'block';
+    }
+
+    // オートコンプリート非表示
+    hideAutocomplete(input) {
+        setTimeout(() => {
+            const wrapper = input.closest('.task-input-wrapper') || input.closest('.customer-input-wrapper');
+            const list = wrapper.querySelector('.autocomplete-list');
+            list.style.display = 'none';
+            this.selectedIndex = -1;
+            this.currentAutocompleteInput = null;
+        }, 150);
+    }
+
+    // プレビュー更新
+    updatePreview() {
+        const resultDate = document.getElementById('resultDate').value;
+        const planDate = document.getElementById('planDate').value;
+        
+        if (!resultDate || !planDate) return;
+        
+        const results = this.getInputData('resultsContainer');
+        const plans = this.getInputData('plansContainer');
+        
+        const markdown = this.generateMarkdown(resultDate, planDate, results, plans);
+        document.getElementById('markdownPreview').textContent = markdown;
+    }
+
+    // 入力データ取得
+    getInputData(containerId) {
+        const container = document.getElementById(containerId);
+        const itemGroups = container.querySelectorAll('.item-group');
+        const data = [];
+        
+        itemGroups.forEach(group => {
+            const customerInput = group.querySelector('.customer-input');
+            const taskWrappers = group.querySelectorAll('.task-input-wrapper');
+            
+            const customer = customerInput.value.trim();
+            if (!customer) return;
+            
+            const tasks = Array.from(taskWrappers)
+                .map(wrapper => {
+                    const mainInput = wrapper.querySelector('.task-input-main');
+                    const subInput = wrapper.querySelector('.task-input-sub');
+                    const main = mainInput ? mainInput.value.trim() : '';
+                    const sub = subInput ? subInput.value.trim() : '';
+                    
+                    if (!main) return null;
+                    
+                    // 括弧内の内容がある場合のみ括弧を追加
+                    return sub ? `${main}(${sub})` : main;
+                })
+                .filter(task => task);
+            
+            if (tasks.length > 0) {
+                data.push({ customer, tasks });
+            }
+        });
+        
+        return data;
+    }
+
+    // マークダウン生成
+    generateMarkdown(resultDate, planDate, results, plans) {
+        let markdown = '';
+        
+        // 実績セクション
+        if (results.length > 0) {
+            const formattedResultDate = this.formatDisplayDate(resultDate);
+            markdown += `- ${formattedResultDate}実績\n`;
+            results.forEach(result => {
+                markdown += `    - ${result.customer}\n`;
+                result.tasks.forEach(task => {
+                    markdown += `        - ${task}\n`;
+                });
+            });
+            markdown += '\n';
+        }
+        
+        // 予定セクション
+        if (plans.length > 0) {
+            const formattedPlanDate = this.formatDisplayDate(planDate);
+            markdown += `- ${formattedPlanDate}以降の予定\n`;
+            plans.forEach(plan => {
+                markdown += `    - ${plan.customer}\n`;
+                plan.tasks.forEach(task => {
+                    markdown += `        - ${task}\n`;
+                });
+            });
+        }
+        
+        return markdown;
+    }
+
+    // 表示用日付フォーマット
+    formatDisplayDate(dateString) {
+        const date = new Date(dateString);
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}/${month}/${day}`;
+    }
+
+    // コピー＆保存
+    async copyAndSave() {
+        const markdown = document.getElementById('markdownPreview').textContent;
+        if (!markdown.trim()) {
+            alert('生成するレポートがありません。');
+            return;
+        }
+        
+        try {
+            await navigator.clipboard.writeText(markdown);
+            
+            // データ保存
+            this.saveCurrentReport(markdown);
+            this.updateUsageStats();
+            this.saveData();
+            this.updateHistoryList();
+            
+            // 予定を実績に複写
+            this.copyPlansToResults();
+            
+            alert('レポートをクリップボードにコピーし、保存しました。\n予定を実績に複写しました。');
+        } catch (err) {
+            alert('クリップボードへのコピーに失敗しました。');
+        }
+    }
+
+    // 現在のレポート保存
+    saveCurrentReport(markdown) {
+        const resultDate = document.getElementById('resultDate').value;
+        const planDate = document.getElementById('planDate').value;
+        const results = this.getInputData('resultsContainer');
+        const plans = this.getInputData('plansContainer');
+        
+        const report = {
+            id: resultDate,
+            resultDate,
+            planDate,
+            results,
+            plans,
+            markdown,
+            created: new Date().toISOString()
+        };
+        
+        // 既存レポートを更新または新規追加
+        const existingIndex = this.data.reports.findIndex(r => r.id === report.id);
+        if (existingIndex !== -1) {
+            this.data.reports[existingIndex] = report;
+        } else {
+            this.data.reports.push(report);
+        }
+        
+        // 日付順でソート（新しい順）
+        this.data.reports.sort((a, b) => new Date(b.resultDate) - new Date(a.resultDate));
+    }
+
+    // 使用統計更新
+    updateUsageStats() {
+        const now = new Date().toISOString();
+        const results = this.getInputData('resultsContainer');
+        const plans = this.getInputData('plansContainer');
+        
+        // 顧客データ更新
+        [...results, ...plans].forEach(item => {
+            let customer = this.data.customers.find(c => c.name === item.customer);
+            if (!customer) {
+                customer = { name: item.customer, useCount: 0, lastUsed: now };
+                this.data.customers.push(customer);
+            }
+            customer.useCount++;
+            customer.lastUsed = now;
+        });
+        
+        // タスクデータ更新（詳細部分を除外してメイン部分のみ保存）
+        [...results, ...plans].forEach(item => {
+            item.tasks.forEach(taskText => {
+                // 括弧内の詳細を除去してメイン部分のみを取得
+                const mainTaskText = taskText.replace(/\s*\([^)]*\)$/, '').trim();
+                
+                if (!mainTaskText) return; // メイン部分が空の場合はスキップ
+                
+                let task = this.data.tasks.find(t => t.text === mainTaskText);
+                if (!task) {
+                    task = { text: mainTaskText, useCount: 0, lastUsed: now };
+                    this.data.tasks.push(task);
+                }
+                task.useCount++;
+                task.lastUsed = now;
+            });
+        });
+    }
+
+    // フォームクリア
+    clearForm() {
+        if (confirm('入力内容をクリアしますか？')) {
+            // 実績・予定コンテナをリセット
+            ['resultsContainer', 'plansContainer'].forEach(containerId => {
+                const container = document.getElementById(containerId);
+                const isResult = containerId === 'resultsContainer';
+                container.innerHTML = `
+                    <div class="item-group">
+                        <div class="item-controls">
+                            <button type="button" class="btn btn-icon move-up-project" title="上に移動">↑</button>
+                            <button type="button" class="btn btn-icon move-down-project" title="下に移動">↓</button>
+                            <button type="button" class="btn btn-icon ${isResult ? 'move-to-plan' : 'move-to-result'}" title="${isResult ? '予定に移動' : '実績に移動'}">${isResult ? '→' : '←'}</button>
+                            <button type="button" class="btn btn-icon delete-item" title="削除">×</button>
+                        </div>
+                        <div class="customer-input-wrapper">
+                            <input type="text" class="customer-input" placeholder="顧客・プロジェクト名">
+                            <div class="autocomplete-list"></div>
+                        </div>
+                        <div class="tasks-container">
+                            <div class="task-input-wrapper">
+                                <div class="task-inputs">
+                                    <input type="text" class="task-input-main" placeholder="${isResult ? '実施' : '予定'}項目">
+                                    <input type="text" class="task-input-sub" placeholder="(詳細)">
+                                    <button type="button" class="btn btn-icon move-up-task" title="上に移動">↑</button>
+                                    <button type="button" class="btn btn-icon move-down-task" title="下に移動">↓</button>
+                                    <button type="button" class="btn btn-icon ${isResult ? 'move-task-to-plan' : 'move-task-to-result'}" title="${isResult ? '予定に移動' : '実績に移動'}">${isResult ? '→' : '←'}</button>
+                                    <button type="button" class="btn btn-icon delete-task" title="項目削除">×</button>
+                                </div>
+                                <div class="autocomplete-list"></div>
+                            </div>
+                        </div>
+                        <button type="button" class="btn btn-small add-task-btn">項目追加</button>
+                    </div>
+                `;
+            });
+            
+            this.setDefaultDates();
+            this.updateSortButtonStates();
+            this.updatePreview();
+        }
+    }
+
+    // 過去レポートリスト更新
+    updateHistoryList() {
+        const select = document.getElementById('historySelect');
+        select.innerHTML = '<option value="">レポートを選択...</option>';
+        
+        this.data.reports.forEach(report => {
+            const option = document.createElement('option');
+            option.value = report.id;
+            option.textContent = `${this.formatDisplayDate(report.resultDate)} の報告`;
+            select.appendChild(option);
+        });
+    }
+
+    // 過去レポート読み込み
+    loadHistory() {
+        const select = document.getElementById('historySelect');
+        const reportId = select.value;
+        
+        if (!reportId) {
+            alert('レポートを選択してください。');
+            return;
+        }
+        
+        const report = this.data.reports.find(r => r.id === reportId);
+        if (!report) {
+            alert('レポートが見つかりません。');
+            return;
+        }
+        
+        // フォームに読み込み
+        document.getElementById('resultDate').value = report.resultDate;
+        document.getElementById('planDate').value = report.planDate;
+        
+        this.loadReportData('resultsContainer', report.results);
+        this.loadReportData('plansContainer', report.plans);
+        
+        this.updateSortButtonStates();
+        this.updatePreview();
+    }
+
+    // レポートデータをフォームに読み込み
+    loadReportData(containerId, data) {
+        const container = document.getElementById(containerId);
+        container.innerHTML = '';
+        
+        data.forEach((item, index) => {
+            if (index === 0) {
+                // 最初のアイテムグループを作成
+                this.addItemGroup(containerId);
+            } else {
+                // 追加のアイテムグループを作成
+                this.addItemGroup(containerId);
+            }
+            
+            const itemGroups = container.querySelectorAll('.item-group');
+            const currentGroup = itemGroups[index];
+            
+            // 顧客名設定
+            const customerInput = currentGroup.querySelector('.customer-input');
+            customerInput.value = item.customer;
+            
+            // イベント委譲により自動的に処理される
+            
+            // タスク設定
+            const tasksContainer = currentGroup.querySelector('.tasks-container');
+            tasksContainer.innerHTML = '';
+            
+            item.tasks.forEach((task, taskIndex) => {
+                const taskWrapper = document.createElement('div');
+                taskWrapper.className = 'task-input-wrapper';
+                
+                // タスクテキストから本体と括弧内を分離
+                const match = task.match(/^(.+?)\((.+?)\)$/);
+                const mainText = match ? match[1] : task;
+                const subText = match ? match[2] : '';
+                
+                const isResult = containerId === 'resultsContainer';
+                taskWrapper.innerHTML = `
+                    <div class="task-inputs">
+                        <input type="text" class="task-input-main" placeholder="項目" value="${mainText}">
+                        <input type="text" class="task-input-sub" placeholder="(詳細)" value="${subText}">
+                        <button type="button" class="btn btn-icon move-up-task" title="上に移動">↑</button>
+                        <button type="button" class="btn btn-icon move-down-task" title="下に移動">↓</button>
+                        <button type="button" class="btn btn-icon ${isResult ? 'move-task-to-plan' : 'move-task-to-result'}" title="${isResult ? '予定に移動' : '実績に移動'}">${isResult ? '→' : '←'}</button>
+                        <button type="button" class="btn btn-icon delete-task" title="項目削除">×</button>
+                    </div>
+                    <div class="autocomplete-list"></div>
+                `;
+                tasksContainer.appendChild(taskWrapper);
+                
+                // イベント委譲により自動的に処理される
+            });
+        });
+    }
+
+    // 過去レポート削除
+    deleteHistory() {
+        const select = document.getElementById('historySelect');
+        const reportId = select.value;
+        
+        if (!reportId) {
+            alert('削除するレポートを選択してください。');
+            return;
+        }
+        
+        if (confirm('選択したレポートを削除しますか？')) {
+            this.data.reports = this.data.reports.filter(r => r.id !== reportId);
+            this.saveData();
+            this.updateHistoryList();
+            alert('レポートを削除しました。');
+        }
+    }
+
+    // データエクスポート
+    exportData() {
+        const exportData = {
+            settings: {
+                customers: this.data.customers,
+                tasks: this.data.tasks
+            },
+            reports: this.data.reports.map(r => r.markdown).join('\n\n---\n\n')
+        };
+        
+        // 設定データ（JSON）
+        const settingsBlob = new Blob([JSON.stringify(exportData.settings, null, 2)], 
+            { type: 'application/json' });
+        const settingsUrl = URL.createObjectURL(settingsBlob);
+        const settingsLink = document.createElement('a');
+        settingsLink.href = settingsUrl;
+        settingsLink.download = `business-report-settings-${new Date().toISOString().split('T')[0]}.json`;
+        settingsLink.click();
+        
+        // レポートデータ（Markdown）
+        if (exportData.reports.trim()) {
+            const reportsBlob = new Blob([exportData.reports], { type: 'text/markdown' });
+            const reportsUrl = URL.createObjectURL(reportsBlob);
+            const reportsLink = document.createElement('a');
+            reportsLink.href = reportsUrl;
+            reportsLink.download = `business-reports-${new Date().toISOString().split('T')[0]}.md`;
+            reportsLink.click();
+        }
+        
+        URL.revokeObjectURL(settingsUrl);
+        if (exportData.reports.trim()) {
+            URL.revokeObjectURL(reportsUrl);
+        }
+    }
+
+    // データインポート
+    importData(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+        
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                if (file.name.endsWith('.json')) {
+                    const importedData = JSON.parse(e.target.result);
+                    if (importedData.customers && importedData.tasks) {
+                        if (confirm('設定データをインポートしますか？既存のデータは上書きされます。')) {
+                            this.data.customers = importedData.customers;
+                            this.data.tasks = importedData.tasks;
+                            this.saveData();
+                            alert('設定データをインポートしました。');
+                        }
+                    }
+                } else {
+                    alert('現在、Markdownファイルのインポートには対応していません。');
+                }
+            } catch (error) {
+                alert('ファイルの読み込みに失敗しました。');
+            }
+        };
+        reader.readAsText(file);
+        
+        // ファイル選択をクリア
+        e.target.value = '';
+    }
+
+    // 項目移動
+    moveItem(button) {
+        const itemGroup = button.closest('.item-group');
+        const isMovingToPlan = button.classList.contains('move-to-plan');
+        const targetContainerId = isMovingToPlan ? 'plansContainer' : 'resultsContainer';
+        const targetContainer = document.getElementById(targetContainerId);
+        
+        // データを取得
+        const customerInput = itemGroup.querySelector('.customer-input');
+        const customerValue = customerInput.value;
+        
+        const taskWrappers = itemGroup.querySelectorAll('.task-input-wrapper');
+        const taskData = Array.from(taskWrappers).map(wrapper => {
+            const mainInput = wrapper.querySelector('.task-input-main');
+            const subInput = wrapper.querySelector('.task-input-sub');
+            return {
+                main: mainInput ? mainInput.value : '',
+                sub: subInput ? subInput.value : ''
+            };
+        }).filter(task => task.main.trim());
+        
+        if (!customerValue.trim() || taskData.length === 0) {
+            alert('移動するデータがありません。');
+            return;
+        }
+        
+        // 新しいアイテムグループを作成
+        this.addItemGroup(targetContainerId);
+        const newItemGroups = targetContainer.querySelectorAll('.item-group');
+        const newItemGroup = newItemGroups[newItemGroups.length - 1];
+        
+        // データを設定
+        const newCustomerInput = newItemGroup.querySelector('.customer-input');
+        newCustomerInput.value = customerValue;
+        
+        // イベント委譲により自動的に処理される
+        
+        const newTasksContainer = newItemGroup.querySelector('.tasks-container');
+        newTasksContainer.innerHTML = '';
+        
+        taskData.forEach(task => {
+            const taskWrapper = document.createElement('div');
+            taskWrapper.className = 'task-input-wrapper';
+            const isTargetResult = targetContainerId === 'resultsContainer';
+            taskWrapper.innerHTML = `
+                <div class="task-inputs">
+                    <input type="text" class="task-input-main" placeholder="項目" value="${task.main}">
+                    <input type="text" class="task-input-sub" placeholder="(詳細)" value="${task.sub}">
+                    <button type="button" class="btn btn-icon move-up-task" title="上に移動">↑</button>
+                    <button type="button" class="btn btn-icon move-down-task" title="下に移動">↓</button>
+                    <button type="button" class="btn btn-icon ${isTargetResult ? 'move-task-to-plan' : 'move-task-to-result'}" title="${isTargetResult ? '予定に移動' : '実績に移動'}">${isTargetResult ? '→' : '←'}</button>
+                    <button type="button" class="btn btn-icon delete-task" title="項目削除">×</button>
+                </div>
+                <div class="autocomplete-list"></div>
+            `;
+            newTasksContainer.appendChild(taskWrapper);
+            
+            // イベント委譲により自動的に処理される
+        });
+        
+        // 元のアイテムを削除
+        itemGroup.remove();
+        
+        // コントロールボタンのイベントを再設定
+        this.setupItemGroupEvents(newItemGroup);
+        this.updatePreview();
+    }
+
+    // 項目削除
+    deleteItem(button) {
+        const itemGroup = button.closest('.item-group');
+        const container = itemGroup.closest('.items-container');
+        
+        if (confirm('この項目を削除しますか？')) {
+            itemGroup.remove();
+            
+            // コンテナが空の場合、デフォルトのアイテムグループを追加
+            if (container.children.length === 0) {
+                const containerId = container.id;
+                this.addItemGroup(containerId);
+            }
+            
+            this.updateSortButtonStates();
+            this.updatePreview();
+        }
+    }
+
+    // タスク削除
+    deleteTask(button) {
+        const taskWrapper = button.closest('.task-input-wrapper');
+        const tasksContainer = taskWrapper.closest('.tasks-container');
+        
+        if (confirm('このタスクを削除しますか？')) {
+            taskWrapper.remove();
+            
+            // タスクが全て削除された場合、デフォルトのタスクを追加
+            if (tasksContainer.children.length === 0) {
+                const itemGroup = tasksContainer.closest('.item-group');
+                const container = itemGroup.closest('.items-container');
+                const isResult = container.id === 'resultsContainer';
+                
+                const taskWrapper = document.createElement('div');
+                taskWrapper.className = 'task-input-wrapper';
+                taskWrapper.innerHTML = `
+                    <div class="task-inputs">
+                        <input type="text" class="task-input-main" placeholder="${isResult ? '実施' : '予定'}項目">
+                        <input type="text" class="task-input-sub" placeholder="(詳細)">
+                        <button type="button" class="btn btn-icon move-up-task" title="上に移動">↑</button>
+                        <button type="button" class="btn btn-icon move-down-task" title="下に移動">↓</button>
+                        <button type="button" class="btn btn-icon ${isResult ? 'move-task-to-plan' : 'move-task-to-result'}" title="${isResult ? '予定に移動' : '実績に移動'}">${isResult ? '→' : '←'}</button>
+                        <button type="button" class="btn btn-icon delete-task" title="項目削除">×</button>
+                    </div>
+                    <div class="autocomplete-list"></div>
+                `;
+                tasksContainer.appendChild(taskWrapper);
+                
+                // イベント委譲により自動的に処理される
+            }
+            
+            this.updateSortButtonStates();
+            this.updatePreview();
+        }
+    }
+
+    // タスク移動
+    moveTask(button) {
+        const taskWrapper = button.closest('.task-input-wrapper');
+        const sourceItemGroup = taskWrapper.closest('.item-group');
+        const sourceContainer = sourceItemGroup.closest('.items-container');
+        
+        // 移動先を決定
+        const isMovingToPlan = button.classList.contains('move-task-to-plan');
+        const targetContainerId = isMovingToPlan ? 'plansContainer' : 'resultsContainer';
+        const targetContainer = document.getElementById(targetContainerId);
+        
+        // タスクデータを取得
+        const mainInput = taskWrapper.querySelector('.task-input-main');
+        const subInput = taskWrapper.querySelector('.task-input-sub');
+        const mainValue = mainInput ? mainInput.value.trim() : '';
+        const subValue = subInput ? subInput.value.trim() : '';
+        
+        if (!mainValue) {
+            alert('移動するタスクがありません。');
+            return;
+        }
+        
+        // 顧客名を取得
+        const sourceCustomerInput = sourceItemGroup.querySelector('.customer-input');
+        const customerValue = sourceCustomerInput ? sourceCustomerInput.value.trim() : '';
+        
+        if (!customerValue) {
+            alert('顧客・プロジェクト名が入力されていません。');
+            return;
+        }
+        
+        // 移動先で同じ顧客のアイテムグループを探す
+        let targetItemGroup = null;
+        const targetItemGroups = targetContainer.querySelectorAll('.item-group');
+        
+        for (const group of targetItemGroups) {
+            const customerInput = group.querySelector('.customer-input');
+            if (customerInput && customerInput.value.trim() === customerValue) {
+                targetItemGroup = group;
+                break;
+            }
+        }
+        
+        // 移動先に同じ顧客がない場合、新しいアイテムグループを作成
+        if (!targetItemGroup) {
+            this.addItemGroup(targetContainerId);
+            const newGroups = targetContainer.querySelectorAll('.item-group');
+            targetItemGroup = newGroups[newGroups.length - 1];
+            
+            // 顧客名を設定
+            const targetCustomerInput = targetItemGroup.querySelector('.customer-input');
+            if (targetCustomerInput) {
+                targetCustomerInput.value = customerValue;
+            }
+            
+            // 既存のデフォルトタスクを削除
+            const targetTasksContainer = targetItemGroup.querySelector('.tasks-container');
+            targetTasksContainer.innerHTML = '';
+        }
+        
+        // 移動先にタスクを追加
+        const targetTasksContainer = targetItemGroup.querySelector('.tasks-container');
+        const newTaskWrapper = document.createElement('div');
+        newTaskWrapper.className = 'task-input-wrapper';
+        
+        const isTargetResult = targetContainerId === 'resultsContainer';
+        newTaskWrapper.innerHTML = `
+            <div class="task-inputs">
+                <input type="text" class="task-input-main" placeholder="${isTargetResult ? '実施' : '予定'}項目" value="${mainValue}">
+                <input type="text" class="task-input-sub" placeholder="(詳細)" value="${subValue}">
+                <button type="button" class="btn btn-icon move-up-task" title="上に移動">↑</button>
+                <button type="button" class="btn btn-icon move-down-task" title="下に移動">↓</button>
+                <button type="button" class="btn btn-icon ${isTargetResult ? 'move-task-to-plan' : 'move-task-to-result'}" title="${isTargetResult ? '予定に移動' : '実績に移動'}">${isTargetResult ? '→' : '←'}</button>
+                <button type="button" class="btn btn-icon delete-task" title="項目削除">×</button>
+            </div>
+            <div class="autocomplete-list"></div>
+        `;
+        
+        targetTasksContainer.appendChild(newTaskWrapper);
+        
+        // イベント委譲により自動的に処理される
+        
+        // 元のタスクを削除
+        taskWrapper.remove();
+        
+        // 元のタスクコンテナが空になった場合、デフォルトタスクを追加
+        const sourceTasksContainer = sourceItemGroup.querySelector('.tasks-container');
+        if (sourceTasksContainer.children.length === 0) {
+            const isSourceResult = sourceContainer.id === 'resultsContainer';
+            const defaultTaskWrapper = document.createElement('div');
+            defaultTaskWrapper.className = 'task-input-wrapper';
+            defaultTaskWrapper.innerHTML = `
+                <div class="task-inputs">
+                    <input type="text" class="task-input-main" placeholder="${isSourceResult ? '実施' : '予定'}項目">
+                    <input type="text" class="task-input-sub" placeholder="(詳細)">
+                    <button type="button" class="btn btn-icon move-up-task" title="上に移動">↑</button>
+                    <button type="button" class="btn btn-icon move-down-task" title="下に移動">↓</button>
+                    <button type="button" class="btn btn-icon ${isSourceResult ? 'move-task-to-plan' : 'move-task-to-result'}" title="${isSourceResult ? '予定に移動' : '実績に移動'}">${isSourceResult ? '→' : '←'}</button>
+                    <button type="button" class="btn btn-icon delete-task" title="項目削除">×</button>
+                </div>
+                <div class="autocomplete-list"></div>
+            `;
+            sourceTasksContainer.appendChild(defaultTaskWrapper);
+            
+            // イベント委譲により自動的に処理される
+        }
+        
+        this.updatePreview();
+    }
+
+    // プロジェクト並べ替え
+    moveProject(button, direction) {
+        const itemGroup = button.closest('.item-group');
+        const container = itemGroup.closest('.items-container');
+        const allItemGroups = Array.from(container.querySelectorAll('.item-group'));
+        const currentIndex = allItemGroups.indexOf(itemGroup);
+        
+        let newIndex;
+        if (direction === 'up') {
+            newIndex = currentIndex - 1;
+            if (newIndex < 0) return; // 既に最上位
+        } else { // direction === 'down'
+            newIndex = currentIndex + 1;
+            if (newIndex >= allItemGroups.length) return; // 既に最下位
+        }
+        
+        // DOM要素を移動
+        const targetItemGroup = allItemGroups[newIndex];
+        if (direction === 'up') {
+            container.insertBefore(itemGroup, targetItemGroup);
+        } else {
+            container.insertBefore(itemGroup, targetItemGroup.nextSibling);
+        }
+        
+        this.updateSortButtonStates();
+        this.updatePreview();
+    }
+
+    // タスク並べ替え
+    moveTaskOrder(button, direction) {
+        const taskWrapper = button.closest('.task-input-wrapper');
+        const tasksContainer = taskWrapper.closest('.tasks-container');
+        const allTaskWrappers = Array.from(tasksContainer.querySelectorAll('.task-input-wrapper'));
+        const currentIndex = allTaskWrappers.indexOf(taskWrapper);
+        
+        let newIndex;
+        if (direction === 'up') {
+            newIndex = currentIndex - 1;
+            if (newIndex < 0) return; // 既に最上位
+        } else { // direction === 'down'
+            newIndex = currentIndex + 1;
+            if (newIndex >= allTaskWrappers.length) return; // 既に最下位
+        }
+        
+        // DOM要素を移動
+        const targetTaskWrapper = allTaskWrappers[newIndex];
+        if (direction === 'up') {
+            tasksContainer.insertBefore(taskWrapper, targetTaskWrapper);
+        } else {
+            tasksContainer.insertBefore(taskWrapper, targetTaskWrapper.nextSibling);
+        }
+        
+        this.updateSortButtonStates();
+        this.updatePreview();
+    }
+
+    // 並べ替えボタンの状態を更新
+    updateSortButtonStates() {
+        const containers = ['resultsContainer', 'plansContainer'];
+        containers.forEach(containerId => {
+            const container = document.getElementById(containerId);
+            
+            // プロジェクトの並べ替えボタン状態を更新
+            const itemGroups = Array.from(container.querySelectorAll('.item-group'));
+            itemGroups.forEach((itemGroup, index) => {
+                const upBtn = itemGroup.querySelector('.move-up-project');
+                const downBtn = itemGroup.querySelector('.move-down-project');
+                
+                if (upBtn) {
+                    upBtn.disabled = (index === 0); // 最初の項目の↑を無効
+                }
+                if (downBtn) {
+                    downBtn.disabled = (index === itemGroups.length - 1); // 最後の項目の↓を無効
+                }
+                
+                // 各プロジェクト内のタスクの並べ替えボタン状態を更新
+                const tasksContainer = itemGroup.querySelector('.tasks-container');
+                if (tasksContainer) {
+                    const taskWrappers = Array.from(tasksContainer.querySelectorAll('.task-input-wrapper'));
+                    taskWrappers.forEach((taskWrapper, taskIndex) => {
+                        const taskUpBtn = taskWrapper.querySelector('.move-up-task');
+                        const taskDownBtn = taskWrapper.querySelector('.move-down-task');
+                        
+                        if (taskUpBtn) {
+                            taskUpBtn.disabled = (taskIndex === 0); // 最初のタスクの↑を無効
+                        }
+                        if (taskDownBtn) {
+                            taskDownBtn.disabled = (taskIndex === taskWrappers.length - 1); // 最後のタスクの↓を無効
+                        }
+                    });
+                }
+            });
+        });
+    }
+
+    // 予定を実績に複写
+    copyPlansToResults() {
+        const plansData = this.getInputData('plansContainer');
+        const resultsContainer = document.getElementById('resultsContainer');
+        
+        if (plansData.length === 0) {
+            return;
+        }
+        
+        // 実績をクリア
+        resultsContainer.innerHTML = '';
+        
+        // 予定の日付を実績日に設定
+        const planDate = document.getElementById('planDate').value;
+        document.getElementById('resultDate').value = planDate;
+        
+        // 次の日を予定日に設定
+        const nextDay = new Date(planDate);
+        nextDay.setDate(nextDay.getDate() + 1);
+        document.getElementById('planDate').value = this.formatDate(nextDay);
+        
+        // 予定データを実績に複写
+        plansData.forEach((planItem, index) => {
+            if (index === 0) {
+                this.addItemGroup('resultsContainer');
+            } else {
+                this.addItemGroup('resultsContainer');
+            }
+            
+            const itemGroups = resultsContainer.querySelectorAll('.item-group');
+            const currentGroup = itemGroups[index];
+            
+            // 顧客名設定
+            const customerInput = currentGroup.querySelector('.customer-input');
+            customerInput.value = planItem.customer;
+            
+            // イベント委譲により自動的に処理される
+            
+            // タスク設定
+            const tasksContainer = currentGroup.querySelector('.tasks-container');
+            tasksContainer.innerHTML = '';
+            
+            planItem.tasks.forEach(task => {
+                // タスクテキストから本体と括弧内を分離
+                const match = task.match(/^(.+?)\((.+?)\)$/);
+                const mainText = match ? match[1] : task;
+                const subText = match ? match[2] : '';
+                
+                const taskWrapper = document.createElement('div');
+                taskWrapper.className = 'task-input-wrapper';
+                taskWrapper.innerHTML = `
+                    <div class="task-inputs">
+                        <input type="text" class="task-input-main" placeholder="実施項目" value="${mainText}">
+                        <input type="text" class="task-input-sub" placeholder="(詳細)" value="${subText}">
+                        <button type="button" class="btn btn-icon move-up-task" title="上に移動">↑</button>
+                        <button type="button" class="btn btn-icon move-down-task" title="下に移動">↓</button>
+                        <button type="button" class="btn btn-icon move-task-to-plan" title="予定に移動">→</button>
+                        <button type="button" class="btn btn-icon delete-task" title="項目削除">×</button>
+                    </div>
+                    <div class="autocomplete-list"></div>
+                `;
+                tasksContainer.appendChild(taskWrapper);
+                
+                // イベント委譲により自動的に処理される
+            });
+        });
+        
+        // 予定をクリア
+        const plansContainer = document.getElementById('plansContainer');
+        plansContainer.innerHTML = `
+            <div class="item-group">
+                <div class="item-controls">
+                    <button type="button" class="btn btn-icon move-up-project" title="上に移動">↑</button>
+                    <button type="button" class="btn btn-icon move-down-project" title="下に移動">↓</button>
+                    <button type="button" class="btn btn-icon move-to-result" title="実績に移動">←</button>
+                    <button type="button" class="btn btn-icon delete-item" title="削除">×</button>
+                </div>
+                <div class="customer-input-wrapper">
+                    <input type="text" class="customer-input" placeholder="顧客・プロジェクト名">
+                    <div class="autocomplete-list"></div>
+                </div>
+                <div class="tasks-container">
+                    <div class="task-input-wrapper">
+                        <div class="task-inputs">
+                            <input type="text" class="task-input-main" placeholder="予定項目">
+                            <input type="text" class="task-input-sub" placeholder="(詳細)">
+                            <button type="button" class="btn btn-icon move-up-task" title="上に移動">↑</button>
+                            <button type="button" class="btn btn-icon move-down-task" title="下に移動">↓</button>
+                            <button type="button" class="btn btn-icon move-task-to-result" title="実績に移動">←</button>
+                            <button type="button" class="btn btn-icon delete-task" title="項目削除">×</button>
+                        </div>
+                        <div class="autocomplete-list"></div>
+                    </div>
+                </div>
+                <button type="button" class="btn btn-small add-task-btn">項目追加</button>
+            </div>
+        `;
+        
+        this.updateSortButtonStates();
+        this.updatePreview();
+    }
+    
+    // 設定編集表示
+    showSettingsEditor() {
+        const modal = document.getElementById('settingsModal');
+        const textarea = document.getElementById('settingsTextarea');
+        
+        const settingsData = {
+            customers: this.data.customers,
+            tasks: this.data.tasks
+        };
+        
+        textarea.value = JSON.stringify(settingsData, null, 2);
+        modal.style.display = 'flex';
+        
+        // モーダル外クリックで閉じる
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                this.hideSettingsEditor();
+            }
+        });
+    }
+    
+    // 設定編集非表示
+    hideSettingsEditor() {
+        const modal = document.getElementById('settingsModal');
+        modal.style.display = 'none';
+    }
+    
+    // 設定保存
+    saveSettings() {
+        const textarea = document.getElementById('settingsTextarea');
+        
+        try {
+            const settingsData = JSON.parse(textarea.value);
+            
+            if (!settingsData.customers || !Array.isArray(settingsData.customers)) {
+                throw new Error('customers配列が正しくありません');
+            }
+            
+            if (!settingsData.tasks || !Array.isArray(settingsData.tasks)) {
+                throw new Error('tasks配列が正しくありません');
+            }
+            
+            // データ形式の検証
+            settingsData.customers.forEach((customer, index) => {
+                if (!customer.name || typeof customer.useCount !== 'number' || !customer.lastUsed) {
+                    throw new Error(`customers[${index}]のデータ形式が正しくありません`);
+                }
+            });
+            
+            settingsData.tasks.forEach((task, index) => {
+                if (!task.text || typeof task.useCount !== 'number' || !task.lastUsed) {
+                    throw new Error(`tasks[${index}]のデータ形式が正しくありません`);
+                }
+            });
+            
+            // データを更新
+            this.data.customers = settingsData.customers;
+            this.data.tasks = settingsData.tasks;
+            
+            this.saveData();
+            this.hideSettingsEditor();
+            alert('設定を保存しました。');
+            
+        } catch (error) {
+            alert(`設定の保存に失敗しました: ${error.message}`);
+        }
+    }
+    
+    // テーマ初期化
+    initTheme() {
+        const savedTheme = localStorage.getItem('theme') || 'light';
+        document.documentElement.setAttribute('data-theme', savedTheme);
+        this.updateThemeIcon(savedTheme);
+    }
+    
+    // テーマ切り替え
+    toggleTheme() {
+        const currentTheme = document.documentElement.getAttribute('data-theme');
+        const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+        
+        document.documentElement.setAttribute('data-theme', newTheme);
+        localStorage.setItem('theme', newTheme);
+        this.updateThemeIcon(newTheme);
+    }
+    
+    // テーマアイコン更新
+    updateThemeIcon(theme) {
+        const icon = document.querySelector('.theme-icon');
+        icon.textContent = theme === 'dark' ? '☀️' : '🌙';
+    }
+    
+    // 現在の日付を更新
+    updateCurrentDate() {
+        const now = new Date();
+        const options = { 
+            year: 'numeric', 
+            month: 'long', 
+            day: 'numeric',
+            weekday: 'long'
+        };
+        const dateString = now.toLocaleDateString('ja-JP', options);
+        document.getElementById('currentDate').textContent = dateString;
+    }
+}
+
+// アプリケーション開始
+document.addEventListener('DOMContentLoaded', () => {
+    new BusinessReportApp();
+});
