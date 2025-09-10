@@ -70,8 +70,10 @@ class BusinessReportApp {
             this.addItemGroup('plansContainer');
         });
 
-        // コピー＆保存ボタン
-        document.getElementById('copyBtn').addEventListener('click', () => this.copyAndSave());
+        // コピー・保存・次の日へボタン
+        document.getElementById('copyBtn').addEventListener('click', () => this.copyToClipboard());
+        document.getElementById('saveBtn').addEventListener('click', () => this.saveReport());
+        document.getElementById('nextDayBtn').addEventListener('click', () => this.moveToNextDay());
 
         // クリアボタン
         document.getElementById('clearBtn').addEventListener('click', () => this.clearForm());
@@ -244,13 +246,12 @@ class BusinessReportApp {
     handleCustomerFocus(e) {
         const input = e.target;
         if (!input.value.trim()) {
-            // 入力が空の場合、最新10件を表示
+            // 入力が空の場合、選択時刻順で最新10件を表示
             const recent = this.data.customers
                 .sort((a, b) => {
-                    if (b.useCount !== a.useCount) {
-                        return b.useCount - a.useCount;
-                    }
-                    return new Date(b.lastUsed) - new Date(a.lastUsed);
+                    const aSelectedAt = new Date(a.selectedAt || a.lastUsed);
+                    const bSelectedAt = new Date(b.selectedAt || b.lastUsed);
+                    return bSelectedAt - aSelectedAt;
                 })
                 .slice(0, 10);
             
@@ -267,11 +268,13 @@ class BusinessReportApp {
             const matches = this.data.customers
                 .filter(customer => customer.name.toLowerCase().includes(value))
                 .sort((a, b) => {
-                    // 使用回数順、次に最終使用日順
+                    // 使用回数順、次に選択時刻順
                     if (b.useCount !== a.useCount) {
                         return b.useCount - a.useCount;
                     }
-                    return new Date(b.lastUsed) - new Date(a.lastUsed);
+                    const aSelectedAt = new Date(a.selectedAt || a.lastUsed);
+                    const bSelectedAt = new Date(b.selectedAt || b.lastUsed);
+                    return bSelectedAt - aSelectedAt;
                 })
                 .slice(0, 10);
             
@@ -285,13 +288,12 @@ class BusinessReportApp {
     handleTaskFocus(e) {
         const input = e.target;
         if (!input.value.trim()) {
-            // 入力が空の場合、最新10件を表示
+            // 入力が空の場合、選択時刻順で最新10件を表示
             const recent = this.data.tasks
                 .sort((a, b) => {
-                    if (b.useCount !== a.useCount) {
-                        return b.useCount - a.useCount;
-                    }
-                    return new Date(b.lastUsed) - new Date(a.lastUsed);
+                    const aSelectedAt = new Date(a.selectedAt || a.lastUsed);
+                    const bSelectedAt = new Date(b.selectedAt || b.lastUsed);
+                    return bSelectedAt - aSelectedAt;
                 })
                 .slice(0, 10);
             
@@ -311,7 +313,9 @@ class BusinessReportApp {
                     if (b.useCount !== a.useCount) {
                         return b.useCount - a.useCount;
                     }
-                    return new Date(b.lastUsed) - new Date(a.lastUsed);
+                    const aSelectedAt = new Date(a.selectedAt || a.lastUsed);
+                    const bSelectedAt = new Date(b.selectedAt || b.lastUsed);
+                    return bSelectedAt - aSelectedAt;
                 })
                 .slice(0, 10);
             
@@ -354,6 +358,7 @@ class BusinessReportApp {
             const selectedItem = items[this.selectedIndex];
             if (selectedItem) {
                 input.value = selectedItem.textContent;
+                this.updateSelectionTime(input, selectedItem.textContent);
                 this.hideAutocomplete(input);
                 this.updatePreview();
             }
@@ -398,6 +403,7 @@ class BusinessReportApp {
             div.addEventListener('mousedown', (e) => {
                 e.preventDefault();
                 input.value = item;
+                this.updateSelectionTime(input, item);
                 this.hideAutocomplete(input);
                 this.updatePreview();
             });
@@ -409,6 +415,29 @@ class BusinessReportApp {
         });
         
         list.style.display = 'block';
+    }
+
+    // 選択時刻更新
+    updateSelectionTime(input, selectedValue) {
+        const now = new Date().toISOString();
+        
+        // 顧客入力の場合
+        if (input.classList.contains('customer-input')) {
+            const customer = this.data.customers.find(c => c.name === selectedValue);
+            if (customer) {
+                customer.selectedAt = now;
+            }
+        }
+        // タスク入力の場合
+        else if (input.classList.contains('task-input-main')) {
+            const task = this.data.tasks.find(t => t.text === selectedValue);
+            if (task) {
+                task.selectedAt = now;
+            }
+        }
+        
+        // データを保存
+        this.saveData();
     }
 
     // オートコンプリート非表示
@@ -512,8 +541,8 @@ class BusinessReportApp {
         return `${year}/${month}/${day}`;
     }
 
-    // コピー＆保存
-    async copyAndSave() {
+    // クリップボードにコピー
+    async copyToClipboard() {
         const markdown = document.getElementById('markdownPreview').textContent;
         if (!markdown.trim()) {
             alert('生成するレポートがありません。');
@@ -522,20 +551,34 @@ class BusinessReportApp {
         
         try {
             await navigator.clipboard.writeText(markdown);
-            
-            // データ保存
-            this.saveCurrentReport(markdown);
-            this.updateUsageStats();
-            this.saveData();
-            this.updateHistoryList();
-            
-            // 予定を実績に複写
-            this.copyPlansToResults();
-            
-            alert('レポートをクリップボードにコピーし、保存しました。\n予定を実績に複写しました。');
+            alert('レポートをクリップボードにコピーしました。');
         } catch (err) {
             alert('クリップボードへのコピーに失敗しました。');
         }
+    }
+
+    // レポート保存
+    saveReport() {
+        const markdown = document.getElementById('markdownPreview').textContent;
+        if (!markdown.trim()) {
+            alert('保存するレポートがありません。');
+            return;
+        }
+        
+        // データ保存
+        this.saveCurrentReport(markdown);
+        this.updateUsageStats();
+        this.saveData();
+        this.updateHistoryList();
+        
+        alert('レポートを保存しました。');
+    }
+
+    // 次の日へ進む
+    moveToNextDay() {
+        // 予定を実績に複写
+        this.copyPlansToResults();
+        alert('予定を実績に複写し、日付を更新しました。');
     }
 
     // 現在のレポート保存
@@ -577,7 +620,7 @@ class BusinessReportApp {
         [...results, ...plans].forEach(item => {
             let customer = this.data.customers.find(c => c.name === item.customer);
             if (!customer) {
-                customer = { name: item.customer, useCount: 0, lastUsed: now };
+                customer = { name: item.customer, useCount: 0, lastUsed: now, selectedAt: now };
                 this.data.customers.push(customer);
             }
             customer.useCount++;
@@ -594,7 +637,7 @@ class BusinessReportApp {
                 
                 let task = this.data.tasks.find(t => t.text === mainTaskText);
                 if (!task) {
-                    task = { text: mainTaskText, useCount: 0, lastUsed: now };
+                    task = { text: mainTaskText, useCount: 0, lastUsed: now, selectedAt: now };
                     this.data.tasks.push(task);
                 }
                 task.useCount++;
