@@ -39,6 +39,7 @@
                                 <button type="button" class="btn btn-icon move-up-project" title="上に移動">↑</button>
                                 <button type="button" class="btn btn-icon move-down-project" title="下に移動">↓</button>
                                 <button type="button" class="btn btn-icon move-to-plan" title="予定に移動">→</button>
+                                <button type="button" class="btn btn-icon copy-to-plan" title="予定に複写">⊃</button>
                                 <button type="button" class="btn btn-icon delete-item" title="削除">×</button>
                             </div>
                             <div class="customer-input-wrapper">
@@ -53,6 +54,7 @@
                                         <button type="button" class="btn btn-icon move-up-task" title="上に移動">↑</button>
                                         <button type="button" class="btn btn-icon move-down-task" title="下に移動">↓</button>
                                         <button type="button" class="btn btn-icon move-task-to-plan" title="予定に移動">→</button>
+                                        <button type="button" class="btn btn-icon copy-task-to-plan" title="予定に複写">⊃</button>
                                         <button type="button" class="btn btn-icon delete-task" title="項目削除">×</button>
                                     </div>
                                     <div class="autocomplete-list"></div>
@@ -136,6 +138,11 @@
                             <button id="deleteHistoryBtn" class="btn btn-danger">削除</button>
                         </div>
                     </div>
+
+                    <!-- 過去レポート表示エリア -->
+                    <div class="history-display">
+                        <pre id="historyPreview" class="history-preview"></pre>
+                    </div>
                 </section>
 
                 <!-- 設定管理セクション -->
@@ -168,6 +175,9 @@
             </div>
         </div>
     </div>
+
+    <!-- Toast コンテナ -->
+    <div id="toastContainer" class="toast-container"></div>
 
     <script src="script.js"></script>
 </body>

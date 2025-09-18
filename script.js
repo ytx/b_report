@@ -26,7 +26,10 @@ class BusinessReportApp {
         this.updatePreview();
         this.initTheme();
         this.updateCurrentDate();
+        this.startRealTimeUpdate();
         this.updateSortButtonStates();
+        this.updateHistoryList();
+        this.updateHistoryDisplay();
     }
 
     // データの読み込み
@@ -105,9 +108,11 @@ class BusinessReportApp {
         document.getElementById('downloadHistoryBtn').addEventListener('click', () => this.downloadHistory());
         document.getElementById('deleteHistoryBtn').addEventListener('click', () => this.deleteHistory());
 
+        // 過去レポート選択時の表示更新
+        document.getElementById('historySelect').addEventListener('change', () => this.updateHistoryDisplay());
+
         // 初期の入力フィールドにイベントを追加
         this.setupInputEvents();
-        this.updateHistoryList();
     }
 
     // 入力フィールドのイベント設定（イベント委譲を使用）
@@ -130,6 +135,10 @@ class BusinessReportApp {
                     this.deleteTask(e.target);
                 } else if (e.target.classList.contains('move-task-to-plan') || e.target.classList.contains('move-task-to-result')) {
                     this.moveTask(e.target);
+                } else if (e.target.classList.contains('copy-to-plan')) {
+                    this.copyItemToPlan(e.target);
+                } else if (e.target.classList.contains('copy-task-to-plan')) {
+                    this.copyTaskToPlan(e.target);
                 } else if (e.target.classList.contains('move-up-task')) {
                     this.moveTaskOrder(e.target, 'up');
                 } else if (e.target.classList.contains('move-down-task')) {
@@ -205,6 +214,7 @@ class BusinessReportApp {
                 <button type="button" class="btn btn-icon move-up-project" title="上に移動">↑</button>
                 <button type="button" class="btn btn-icon move-down-project" title="下に移動">↓</button>
                 <button type="button" class="btn btn-icon ${isResult ? 'move-to-plan' : 'move-to-result'}" title="${isResult ? '予定に移動' : '実績に移動'}">${isResult ? '→' : '←'}</button>
+                ${isResult ? '<button type="button" class="btn btn-icon copy-to-plan" title="予定に複写">⊃</button>' : ''}
                 <button type="button" class="btn btn-icon delete-item" title="削除">×</button>
             </div>
             <div class="customer-input-wrapper">
@@ -216,7 +226,10 @@ class BusinessReportApp {
                     <div class="task-inputs">
                         <input type="text" class="task-input-main" placeholder="${isResult ? '実施' : '予定'}項目">
                         <input type="text" class="task-input-sub" placeholder="(詳細)">
+                        <button type="button" class="btn btn-icon move-up-task" title="上に移動">↑</button>
+                        <button type="button" class="btn btn-icon move-down-task" title="下に移動">↓</button>
                         <button type="button" class="btn btn-icon ${isResult ? 'move-task-to-plan' : 'move-task-to-result'}" title="${isResult ? '予定に移動' : '実績に移動'}">${isResult ? '→' : '←'}</button>
+                        ${isResult ? '<button type="button" class="btn btn-icon copy-task-to-plan" title="予定に複写">⊃</button>' : ''}
                         <button type="button" class="btn btn-icon delete-task" title="項目削除">×</button>
                     </div>
                     <div class="autocomplete-list"></div>
@@ -247,6 +260,7 @@ class BusinessReportApp {
                 <button type="button" class="btn btn-icon move-up-task" title="上に移動">↑</button>
                 <button type="button" class="btn btn-icon move-down-task" title="下に移動">↓</button>
                 <button type="button" class="btn btn-icon ${isResult ? 'move-task-to-plan' : 'move-task-to-result'}" title="${isResult ? '予定に移動' : '実績に移動'}">${isResult ? '→' : '←'}</button>
+                ${isResult ? '<button type="button" class="btn btn-icon copy-task-to-plan" title="予定に複写">⊃</button>' : ''}
                 <button type="button" class="btn btn-icon delete-task" title="項目削除">×</button>
             </div>
             <div class="autocomplete-list"></div>
@@ -563,15 +577,15 @@ class BusinessReportApp {
     async copyToClipboard() {
         const markdown = document.getElementById('markdownPreview').textContent;
         if (!markdown.trim()) {
-            alert('生成するレポートがありません。');
+            this.showToast('生成するレポートがありません。', 'warning');
             return;
         }
         
         try {
             await navigator.clipboard.writeText(markdown);
-            alert('レポートをクリップボードにコピーしました。');
+            this.showToast('レポートをクリップボードにコピーしました。', 'success');
         } catch (err) {
-            alert('クリップボードへのコピーに失敗しました。');
+            this.showToast('クリップボードへのコピーに失敗しました。', 'error');
         }
     }
 
@@ -579,7 +593,7 @@ class BusinessReportApp {
     saveReport() {
         const markdown = document.getElementById('markdownPreview').textContent;
         if (!markdown.trim()) {
-            alert('保存するレポートがありません。');
+            this.showToast('保存するレポートがありません。', 'warning');
             return;
         }
         
@@ -589,15 +603,16 @@ class BusinessReportApp {
         this.saveData();
         this.saveCurrentSession();
         this.updateHistoryList();
-        
-        alert('レポートを保存しました。');
+        this.updateHistoryDisplay();
+
+        this.showToast('レポートを保存しました。', 'success');
     }
 
     // 次の日へ進む
     moveToNextDay() {
         // 予定を実績に複写
         this.copyPlansToResults();
-        alert('予定を実績に複写し、日付を更新しました。');
+        this.showToast('予定を実績に複写し、日付を更新しました。', 'success');
     }
 
     // 現在のレポート保存
@@ -695,6 +710,7 @@ class BusinessReportApp {
                                     <button type="button" class="btn btn-icon move-up-task" title="上に移動">↑</button>
                                     <button type="button" class="btn btn-icon move-down-task" title="下に移動">↓</button>
                                     <button type="button" class="btn btn-icon ${isResult ? 'move-task-to-plan' : 'move-task-to-result'}" title="${isResult ? '予定に移動' : '実績に移動'}">${isResult ? '→' : '←'}</button>
+                                    ${isResult ? '<button type="button" class="btn btn-icon copy-task-to-plan" title="予定に複写">⊃</button>' : ''}
                                     <button type="button" class="btn btn-icon delete-task" title="項目削除">×</button>
                                 </div>
                                 <div class="autocomplete-list"></div>
@@ -722,6 +738,11 @@ class BusinessReportApp {
             option.textContent = `${this.formatDisplayDate(report.resultDate)} の報告`;
             select.appendChild(option);
         });
+
+        // 最新のレポートを自動選択
+        if (this.data.reports.length > 0) {
+            select.value = this.data.reports[0].id;
+        }
     }
 
     // 過去レポート読み込み
@@ -730,13 +751,13 @@ class BusinessReportApp {
         const reportId = select.value;
         
         if (!reportId) {
-            alert('レポートを選択してください。');
+            this.showToast('レポートを選択してください。', 'warning');
             return;
         }
         
         const report = this.data.reports.find(r => r.id === reportId);
         if (!report) {
-            alert('レポートが見つかりません。');
+            this.showToast('レポートが見つかりません。', 'error');
             return;
         }
         
@@ -756,13 +777,13 @@ class BusinessReportApp {
         const reportId = select.value;
         
         if (!reportId) {
-            alert('ダウンロードするレポートを選択してください。');
+            this.showToast('ダウンロードするレポートを選択してください。', 'warning');
             return;
         }
         
         const report = this.data.reports.find(r => r.id === reportId);
         if (!report) {
-            alert('選択されたレポートが見つかりません。');
+            this.showToast('選択されたレポートが見つかりません。', 'error');
             return;
         }
         
@@ -784,7 +805,7 @@ class BusinessReportApp {
         const reportId = select.value;
         
         if (!reportId) {
-            alert('削除するレポートを選択してください。');
+            this.showToast('削除するレポートを選択してください。', 'warning');
             return;
         }
         
@@ -792,7 +813,7 @@ class BusinessReportApp {
             this.data.reports = this.data.reports.filter(r => r.id !== reportId);
             this.saveData();
             this.updateHistoryList();
-            alert('レポートを削除しました。');
+            this.showToast('レポートを削除しました。', 'success');
         }
     }
 
@@ -847,7 +868,7 @@ class BusinessReportApp {
                             this.data.customers = importedData.customers;
                             this.data.tasks = importedData.tasks;
                             this.saveData();
-                            alert('設定データをインポートしました。');
+                            this.showToast('設定データをインポートしました。', 'success');
                         }
                     }
                 } else if (file.name.endsWith('.md')) {
@@ -856,16 +877,16 @@ class BusinessReportApp {
                     if (parsedData) {
                         if (confirm('Markdownレポートをインポートして現在の入力内容を上書きしますか？')) {
                             this.loadReportData(parsedData);
-                            alert('Markdownレポートをインポートしました。');
+                            this.showToast('Markdownレポートをインポートしました。', 'success');
                         }
                     } else {
-                        alert('Markdownファイルの形式が正しくありません。');
+                        this.showToast('Markdownファイルの形式が正しくありません。', 'error');
                     }
                 } else {
-                    alert('対応していないファイル形式です。JSON(.json)またはMarkdown(.md)ファイルを選択してください。');
+                    this.showToast('対応していないファイル形式です。JSON(.json)またはMarkdown(.md)ファイルを選択してください。', 'error');
                 }
             } catch (error) {
-                alert('ファイルの読み込みに失敗しました。');
+                this.showToast('ファイルの読み込みに失敗しました。', 'error');
             }
         };
         reader.readAsText(file);
@@ -996,6 +1017,7 @@ class BusinessReportApp {
                 <button type="button" class="btn btn-icon move-up-project" title="上に移動">↑</button>
                 <button type="button" class="btn btn-icon move-down-project" title="下に移動">↓</button>
                 <button type="button" class="btn btn-icon ${isResult ? 'move-to-plan' : 'move-to-result'}" title="${isResult ? '予定に移動' : '実績に移動'}">${isResult ? '→' : '←'}</button>
+                ${isResult ? '<button type="button" class="btn btn-icon copy-to-plan" title="予定に複写">⊃</button>' : ''}
                 <button type="button" class="btn btn-icon delete-item" title="削除">×</button>
             </div>
             <div class="customer-input-wrapper">
@@ -1024,6 +1046,7 @@ class BusinessReportApp {
                     <button type="button" class="btn btn-icon move-up-task" title="上に移動">↑</button>
                     <button type="button" class="btn btn-icon move-down-task" title="下に移動">↓</button>
                     <button type="button" class="btn btn-icon ${isResult ? 'move-task-to-plan' : 'move-task-to-result'}" title="${isResult ? '予定に移動' : '実績に移動'}">${isResult ? '→' : '←'}</button>
+                    ${isResult ? '<button type="button" class="btn btn-icon copy-task-to-plan" title="予定に複写">⊃</button>' : ''}
                     <button type="button" class="btn btn-icon delete-task" title="項目削除">×</button>
                 </div>
                 <div class="autocomplete-list"></div>
@@ -1042,6 +1065,7 @@ class BusinessReportApp {
                     <button type="button" class="btn btn-icon move-up-task" title="上に移動">↑</button>
                     <button type="button" class="btn btn-icon move-down-task" title="下に移動">↓</button>
                     <button type="button" class="btn btn-icon ${isResult ? 'move-task-to-plan' : 'move-task-to-result'}" title="${isResult ? '予定に移動' : '実績に移動'}">${isResult ? '→' : '←'}</button>
+                    ${isResult ? '<button type="button" class="btn btn-icon copy-task-to-plan" title="予定に複写">⊃</button>' : ''}
                     <button type="button" class="btn btn-icon delete-task" title="項目削除">×</button>
                 </div>
                 <div class="autocomplete-list"></div>
@@ -1078,6 +1102,7 @@ class BusinessReportApp {
                                 <button type="button" class="btn btn-icon move-up-task" title="上に移動">↑</button>
                                 <button type="button" class="btn btn-icon move-down-task" title="下に移動">↓</button>
                                 <button type="button" class="btn btn-icon ${isResult ? 'move-task-to-plan' : 'move-task-to-result'}" title="${isResult ? '予定に移動' : '実績に移動'}">${isResult ? '→' : '←'}</button>
+                                ${isResult ? '<button type="button" class="btn btn-icon copy-task-to-plan" title="予定に複写">⊃</button>' : ''}
                                 <button type="button" class="btn btn-icon delete-task" title="項目削除">×</button>
                             </div>
                             <div class="autocomplete-list"></div>
@@ -1111,7 +1136,7 @@ class BusinessReportApp {
         }).filter(task => task.main.trim());
         
         if (!customerValue.trim() || taskData.length === 0) {
-            alert('移動するデータがありません。');
+            this.showToast('移動するデータがありません。', 'warning');
             return;
         }
         
@@ -1199,6 +1224,7 @@ class BusinessReportApp {
                         <button type="button" class="btn btn-icon move-up-task" title="上に移動">↑</button>
                         <button type="button" class="btn btn-icon move-down-task" title="下に移動">↓</button>
                         <button type="button" class="btn btn-icon ${isResult ? 'move-task-to-plan' : 'move-task-to-result'}" title="${isResult ? '予定に移動' : '実績に移動'}">${isResult ? '→' : '←'}</button>
+                        ${isResult ? '<button type="button" class="btn btn-icon copy-task-to-plan" title="予定に複写">⊃</button>' : ''}
                         <button type="button" class="btn btn-icon delete-task" title="項目削除">×</button>
                     </div>
                     <div class="autocomplete-list"></div>
@@ -1231,7 +1257,7 @@ class BusinessReportApp {
         const subValue = subInput ? subInput.value.trim() : '';
         
         if (!mainValue) {
-            alert('移動するタスクがありません。');
+            this.showToast('移動するタスクがありません。', 'warning');
             return;
         }
         
@@ -1240,7 +1266,7 @@ class BusinessReportApp {
         const customerValue = sourceCustomerInput ? sourceCustomerInput.value.trim() : '';
         
         if (!customerValue) {
-            alert('顧客・プロジェクト名が入力されていません。');
+            this.showToast('顧客・プロジェクト名が入力されていません。', 'warning');
             return;
         }
         
@@ -1311,6 +1337,7 @@ class BusinessReportApp {
                     <button type="button" class="btn btn-icon move-up-task" title="上に移動">↑</button>
                     <button type="button" class="btn btn-icon move-down-task" title="下に移動">↓</button>
                     <button type="button" class="btn btn-icon ${isSourceResult ? 'move-task-to-plan' : 'move-task-to-result'}" title="${isSourceResult ? '予定に移動' : '実績に移動'}">${isSourceResult ? '→' : '←'}</button>
+                    ${isSourceResult ? '<button type="button" class="btn btn-icon copy-task-to-plan" title="予定に複写">⊃</button>' : ''}
                     <button type="button" class="btn btn-icon delete-task" title="項目削除">×</button>
                 </div>
                 <div class="autocomplete-list"></div>
@@ -1581,10 +1608,10 @@ class BusinessReportApp {
             
             this.saveData();
             this.hideSettingsEditor();
-            alert('設定を保存しました。');
+            this.showToast('設定を保存しました。', 'success');
             
         } catch (error) {
-            alert(`設定の保存に失敗しました: ${error.message}`);
+            this.showToast(`設定の保存に失敗しました: ${error.message}`, 'error');
         }
     }
     
@@ -1676,14 +1703,240 @@ class BusinessReportApp {
     // 現在の日付を更新
     updateCurrentDate() {
         const now = new Date();
-        const options = { 
-            year: 'numeric', 
-            month: 'long', 
+        const options = {
+            year: 'numeric',
+            month: 'long',
             day: 'numeric',
             weekday: 'long'
         };
         const dateString = now.toLocaleDateString('ja-JP', options);
         document.getElementById('currentDate').textContent = dateString;
+    }
+
+    // リアルタイム更新開始
+    startRealTimeUpdate() {
+        // 初回表示
+        this.updateCurrentDate();
+
+        // 毎秒1分更新
+        setInterval(() => {
+            this.updateCurrentDate();
+        }, 60000);
+    }
+
+    // 過去レポート表示更新
+    updateHistoryDisplay() {
+        const select = document.getElementById('historySelect');
+        const preview = document.getElementById('historyPreview');
+        const reportId = select.value;
+
+        if (!reportId) {
+            preview.textContent = 'レポートを選択してください...';
+            return;
+        }
+
+        const report = this.data.reports.find(r => r.id === reportId);
+        if (report && report.markdown) {
+            preview.textContent = report.markdown;
+        } else {
+            preview.textContent = 'レポートが見つかりません...';
+        }
+    }
+
+    // 実績からプロジェクトを予定に複写
+    copyItemToPlan(button) {
+        const itemGroup = button.closest('.item-group');
+        const targetContainer = document.getElementById('plansContainer');
+
+        // データを取得
+        const customerInput = itemGroup.querySelector('.customer-input');
+        const customerValue = customerInput.value;
+
+        const taskWrappers = itemGroup.querySelectorAll('.task-input-wrapper');
+        const taskData = Array.from(taskWrappers).map(wrapper => {
+            const mainInput = wrapper.querySelector('.task-input-main');
+            const subInput = wrapper.querySelector('.task-input-sub');
+            return {
+                main: mainInput ? mainInput.value : '',
+                sub: subInput ? subInput.value : ''
+            };
+        }).filter(task => task.main.trim());
+
+        if (!customerValue.trim() || taskData.length === 0) {
+            this.showToast('複写するデータがありません。', 'warning');
+            return;
+        }
+
+        // 新しいアイテムグループを作成
+        this.addItemGroup('plansContainer');
+        const newItemGroups = targetContainer.querySelectorAll('.item-group');
+        const newItemGroup = newItemGroups[newItemGroups.length - 1];
+
+        // データを設定
+        const newCustomerInput = newItemGroup.querySelector('.customer-input');
+        newCustomerInput.value = customerValue;
+
+        const newTasksContainer = newItemGroup.querySelector('.tasks-container');
+        newTasksContainer.innerHTML = '';
+
+        taskData.forEach(task => {
+            const taskWrapper = document.createElement('div');
+            taskWrapper.className = 'task-input-wrapper';
+
+            // 詳細に「・続き」を追加
+            let newSubValue = task.sub;
+            if (newSubValue.trim()) {
+                newSubValue = newSubValue + '・続き';
+            } else {
+                newSubValue = '続き';
+            }
+
+            taskWrapper.innerHTML = `
+                <div class="task-inputs">
+                    <input type="text" class="task-input-main" placeholder="項目" value="${task.main}">
+                    <input type="text" class="task-input-sub" placeholder="(詳細)" value="${newSubValue}">
+                    <button type="button" class="btn btn-icon move-up-task" title="上に移動">↑</button>
+                    <button type="button" class="btn btn-icon move-down-task" title="下に移動">↓</button>
+                    <button type="button" class="btn btn-icon move-task-to-result" title="実績に移動">←</button>
+                    <button type="button" class="btn btn-icon delete-task" title="項目削除">×</button>
+                </div>
+                <div class="autocomplete-list"></div>
+            `;
+            newTasksContainer.appendChild(taskWrapper);
+        });
+
+        this.setupItemGroupEvents(newItemGroup);
+        this.updatePreview();
+        this.updateSortButtonStates();
+
+        this.showToast('プロジェクトを予定に複写しました。', 'success');
+    }
+
+    // 実績からタスクを予定に複写
+    copyTaskToPlan(button) {
+        const taskWrapper = button.closest('.task-input-wrapper');
+        const sourceItemGroup = taskWrapper.closest('.item-group');
+        const targetContainer = document.getElementById('plansContainer');
+
+        // タスクデータを取得
+        const mainInput = taskWrapper.querySelector('.task-input-main');
+        const subInput = taskWrapper.querySelector('.task-input-sub');
+        const mainValue = mainInput ? mainInput.value.trim() : '';
+        const subValue = subInput ? subInput.value.trim() : '';
+
+        if (!mainValue) {
+            this.showToast('複写するタスクがありません。', 'warning');
+            return;
+        }
+
+        // 顧客名を取得
+        const sourceCustomerInput = sourceItemGroup.querySelector('.customer-input');
+        const customerValue = sourceCustomerInput ? sourceCustomerInput.value.trim() : '';
+
+        if (!customerValue) {
+            this.showToast('顧客・プロジェクト名が入力されていません。', 'warning');
+            return;
+        }
+
+        // 移動先で同じ顧客のアイテムグループを探す
+        let targetItemGroup = null;
+        const targetItemGroups = targetContainer.querySelectorAll('.item-group');
+
+        for (const group of targetItemGroups) {
+            const customerInput = group.querySelector('.customer-input');
+            if (customerInput && customerInput.value.trim() === customerValue) {
+                targetItemGroup = group;
+                break;
+            }
+        }
+
+        // 移動先に同じ顧客がない場合、新しいアイテムグループを作成
+        if (!targetItemGroup) {
+            this.addItemGroup('plansContainer');
+            const newGroups = targetContainer.querySelectorAll('.item-group');
+            targetItemGroup = newGroups[newGroups.length - 1];
+
+            // 顧客名を設定
+            const targetCustomerInput = targetItemGroup.querySelector('.customer-input');
+            if (targetCustomerInput) {
+                targetCustomerInput.value = customerValue;
+            }
+
+            // 既存のデフォルトタスクを削除
+            const targetTasksContainer = targetItemGroup.querySelector('.tasks-container');
+            targetTasksContainer.innerHTML = '';
+        }
+
+        // 移動先にタスクを追加
+        const targetTasksContainer = targetItemGroup.querySelector('.tasks-container');
+        const newTaskWrapper = document.createElement('div');
+        newTaskWrapper.className = 'task-input-wrapper';
+
+        // 詳細に「・続き」を追加
+        let newSubValue = subValue;
+        if (newSubValue.trim()) {
+            newSubValue = newSubValue + '・続き';
+        } else {
+            newSubValue = '続き';
+        }
+
+        newTaskWrapper.innerHTML = `
+            <div class="task-inputs">
+                <input type="text" class="task-input-main" placeholder="予定項目" value="${mainValue}">
+                <input type="text" class="task-input-sub" placeholder="(詳細)" value="${newSubValue}">
+                <button type="button" class="btn btn-icon move-up-task" title="上に移動">↑</button>
+                <button type="button" class="btn btn-icon move-down-task" title="下に移動">↓</button>
+                <button type="button" class="btn btn-icon move-task-to-result" title="実績に移動">←</button>
+                <button type="button" class="btn btn-icon delete-task" title="項目削除">×</button>
+            </div>
+            <div class="autocomplete-list"></div>
+        `;
+
+        targetTasksContainer.appendChild(newTaskWrapper);
+
+        this.updatePreview();
+        this.updateSortButtonStates();
+
+        this.showToast('タスクを予定に複写しました。', 'success');
+    }
+
+    // Toast通知システム
+    showToast(message, type = 'info', duration = 3000) {
+        const container = document.getElementById('toastContainer');
+        const toast = document.createElement('div');
+        toast.className = `toast ${type}`;
+
+        toast.innerHTML = `
+            <div>${message}</div>
+            <button class="toast-close" type="button">&times;</button>
+        `;
+
+        container.appendChild(toast);
+
+        // 閉じるボタンのイベント
+        const closeBtn = toast.querySelector('.toast-close');
+        closeBtn.addEventListener('click', () => this.removeToast(toast));
+
+        // アニメーション表示
+        setTimeout(() => {
+            toast.classList.add('show');
+        }, 10);
+
+        // 自動削除
+        setTimeout(() => {
+            this.removeToast(toast);
+        }, duration);
+    }
+
+    removeToast(toast) {
+        if (toast.parentNode) {
+            toast.classList.remove('show');
+            setTimeout(() => {
+                if (toast.parentNode) {
+                    toast.parentNode.removeChild(toast);
+                }
+            }, 300);
+        }
     }
 }
 
