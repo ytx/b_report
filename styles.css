@@ -327,6 +327,16 @@ header h1 {
     background-color: #0056b3;
 }
 
+.copy-to-plan,
+.copy-task-to-plan {
+    background-color: #28a745;
+}
+
+.copy-to-plan:hover,
+.copy-task-to-plan:hover {
+    background-color: #1e7e34;
+}
+
 .customer-input-wrapper,
 .task-input-wrapper {
     position: relative;
@@ -379,15 +389,19 @@ header h1 {
 }
 
 .task-inputs .move-up-task {
-    right: 97px; /* 10px + 24px*3 + 5px*3 = 10 + 72 + 15 = 97px */
+    right: 126px; /* 10px + 24px*4 + 5px*4 = 10 + 96 + 20 = 126px */
 }
 
 .task-inputs .move-down-task {
-    right: 68px; /* 10px + 24px*2 + 5px*2 = 10 + 48 + 10 = 68px */
+    right: 97px; /* 10px + 24px*3 + 5px*3 = 10 + 72 + 15 = 97px */
 }
 
 .task-inputs .move-task-to-plan,
 .task-inputs .move-task-to-result {
+    right: 68px; /* 10px + 24px*2 + 5px*2 = 10 + 48 + 10 = 68px */
+}
+
+.task-inputs .copy-task-to-plan {
     right: 39px; /* 10px + 24px*1 + 5px*1 = 10 + 24 + 5 = 39px */
 }
 
@@ -904,6 +918,7 @@ header h1 {
     .task-inputs .move-down-task,
     .task-inputs .move-task-to-plan,
     .task-inputs .move-task-to-result,
+    .task-inputs .copy-task-to-plan,
     .task-inputs .delete-task {
         right: auto !important;
     }
