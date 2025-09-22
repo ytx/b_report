@@ -624,6 +624,122 @@ header h1 {
     color: var(--text-primary);
 }
 
+/* Calendar Modal */
+.calendar-modal {
+    max-width: 400px;
+    min-height: auto;
+    position: relative;
+}
+
+.calendar-navigation {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding: 0 10px;
+}
+
+.current-month {
+    font-size: 18px;
+    font-weight: bold;
+    color: var(--text-primary);
+    min-width: 150px;
+    text-align: center;
+}
+
+.calendar-navigation .btn-icon {
+    width: 32px;
+    height: 32px;
+    background-color: var(--bg-tertiary);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    font-size: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.calendar-navigation .btn-icon:hover {
+    background-color: var(--border-color);
+}
+
+.calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 1px;
+    background-color: var(--border-color);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.calendar-day {
+    background-color: var(--bg-primary);
+    padding: 12px 8px;
+    text-align: center;
+    font-size: 14px;
+    color: var(--text-primary);
+    min-height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.2s ease;
+}
+
+.calendar-day.header {
+    background-color: var(--bg-tertiary);
+    font-weight: bold;
+    color: var(--text-secondary);
+    font-size: 12px;
+}
+
+.calendar-day.other-month {
+    color: var(--text-muted);
+    background-color: var(--bg-secondary);
+}
+
+.calendar-day.today {
+    background-color: #007bff;
+    color: white;
+    font-weight: bold;
+}
+
+.calendar-day:not(.header):not(.other-month):hover {
+    background-color: var(--bg-tertiary);
+    cursor: pointer;
+}
+
+.calendar-modal .close-btn {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: none;
+    border: none;
+    font-size: 20px;
+    color: var(--text-muted);
+    cursor: pointer;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    z-index: 1;
+}
+
+.calendar-modal .close-btn:hover {
+    background-color: var(--bg-secondary);
+    color: var(--text-primary);
+}
+
+/* Current Date Display */
+#currentDate {
+    color: var(--text-muted);
+    font-size: 14px;
+    cursor: pointer;
+}
+
 .modal {
     position: fixed;
     top: 0;

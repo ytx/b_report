@@ -111,6 +111,15 @@ class BusinessReportApp {
         // 過去レポート選択時の表示更新
         document.getElementById('historySelect').addEventListener('change', () => this.updateHistoryDisplay());
 
+        // カレンダー関連
+        document.getElementById('currentDate').addEventListener('click', () => this.showCalendar());
+        document.getElementById('closeCalendarBtn').addEventListener('click', () => this.hideCalendar());
+        document.getElementById('calendarModal').addEventListener('click', (e) => {
+            if (e.target.id === 'calendarModal') this.hideCalendar();
+        });
+        document.getElementById('prevMonth').addEventListener('click', () => this.changeMonth(-1));
+        document.getElementById('nextMonth').addEventListener('click', () => this.changeMonth(1));
+
         // 初期の入力フィールドにイベントを追加
         this.setupInputEvents();
     }
@@ -1898,6 +1907,87 @@ class BusinessReportApp {
         this.updateSortButtonStates();
 
         this.showToast('タスクを予定に複写しました。', 'success');
+    }
+
+    // カレンダー機能
+    showCalendar() {
+        this.currentCalendarDate = new Date();
+        this.renderCalendar();
+        document.getElementById('calendarModal').style.display = 'flex';
+    }
+
+    hideCalendar() {
+        document.getElementById('calendarModal').style.display = 'none';
+    }
+
+    changeMonth(direction) {
+        this.currentCalendarDate.setMonth(this.currentCalendarDate.getMonth() + direction);
+        this.renderCalendar();
+    }
+
+    renderCalendar() {
+        const year = this.currentCalendarDate.getFullYear();
+        const month = this.currentCalendarDate.getMonth();
+        const today = new Date();
+
+        // 月年表示を更新
+        const monthNames = ['1月', '2月', '3月', '4月', '5月', '6月',
+                           '7月', '8月', '9月', '10月', '11月', '12月'];
+        document.getElementById('currentMonth').textContent = `${year}年 ${monthNames[month]}`;
+
+        // カレンダーグリッドをクリア
+        const grid = document.getElementById('calendarGrid');
+        grid.innerHTML = '';
+
+        // 曜日ヘッダーを追加
+        const dayHeaders = ['日', '月', '火', '水', '木', '金', '土'];
+        dayHeaders.forEach(day => {
+            const dayElement = document.createElement('div');
+            dayElement.className = 'calendar-day header';
+            dayElement.textContent = day;
+            grid.appendChild(dayElement);
+        });
+
+        // 月の最初の日と最後の日を取得
+        const firstDay = new Date(year, month, 1);
+        const lastDay = new Date(year, month + 1, 0);
+        const firstDayOfWeek = firstDay.getDay();
+        const daysInMonth = lastDay.getDate();
+
+        // 前月の末尾の日々を追加
+        const prevMonth = new Date(year, month - 1, 0);
+        const daysInPrevMonth = prevMonth.getDate();
+        for (let i = firstDayOfWeek - 1; i >= 0; i--) {
+            const dayElement = document.createElement('div');
+            dayElement.className = 'calendar-day other-month';
+            dayElement.textContent = daysInPrevMonth - i;
+            grid.appendChild(dayElement);
+        }
+
+        // 現在の月の日々を追加
+        for (let day = 1; day <= daysInMonth; day++) {
+            const dayElement = document.createElement('div');
+            dayElement.className = 'calendar-day';
+            dayElement.textContent = day;
+
+            // 今日の日付をハイライト
+            if (year === today.getFullYear() &&
+                month === today.getMonth() &&
+                day === today.getDate()) {
+                dayElement.classList.add('today');
+            }
+
+            grid.appendChild(dayElement);
+        }
+
+        // 次月の最初の日々を追加（グリッドを埋めるため）
+        const remainingCells = 42 - (firstDayOfWeek + daysInMonth); // 6週間 = 42セル
+        for (let day = 1; day <= remainingCells; day++) {
+            const dayElement = document.createElement('div');
+            dayElement.className = 'calendar-day other-month';
+            dayElement.textContent = day;
+            grid.appendChild(dayElement);
+        }
     }
 
     // Toast通知システム
