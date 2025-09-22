@@ -48,6 +48,7 @@
                             </div>
                             <div class="tasks-container">
                                 <div class="task-input-wrapper">
+                                    <button type="button" class="btn btn-icon task-status-btn" data-status="pending" title="未着手">×</button>
                                     <div class="task-inputs">
                                         <input type="text" class="task-input-main" placeholder="実施項目">
                                         <input type="text" class="task-input-sub" placeholder="(詳細)">
@@ -65,6 +66,13 @@
                     </div>
                     <button type="button" id="addResultBtn" class="btn btn-primary">顧客・プロジェクト追加</button>
                 </section>
+
+                <!-- タスク反映ボタン -->
+                <div class="task-reflection-section">
+                    <button type="button" id="reflectTasksBtn" class="btn btn-wide btn-secondary">
+                        未着手・作業中のタスクを予定に反映する
+                    </button>
+                </div>
 
                 <!-- 予定入力セクション -->
                 <section class="input-section">

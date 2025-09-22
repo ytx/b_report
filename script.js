@@ -38,11 +38,20 @@ class BusinessReportApp {
         if (savedData) {
             this.data = JSON.parse(savedData);
         }
+
+        // タスクステータスデータの読み込み
+        const taskStatusData = localStorage.getItem('taskStatusData');
+        if (taskStatusData) {
+            this.taskStatus = JSON.parse(taskStatusData);
+        } else {
+            this.taskStatus = {};
+        }
     }
 
     // データの保存
     saveData() {
         localStorage.setItem('businessReportData', JSON.stringify(this.data));
+        localStorage.setItem('taskStatusData', JSON.stringify(this.taskStatus));
     }
 
     // デフォルト日付設定
@@ -120,6 +129,9 @@ class BusinessReportApp {
         document.getElementById('prevMonth').addEventListener('click', () => this.changeMonth(-1));
         document.getElementById('nextMonth').addEventListener('click', () => this.changeMonth(1));
 
+        // タスク反映ボタン
+        document.getElementById('reflectTasksBtn').addEventListener('click', () => this.reflectTasksToPlan());
+
         // 初期の入力フィールドにイベントを追加
         this.setupInputEvents();
     }
@@ -148,6 +160,8 @@ class BusinessReportApp {
                     this.copyItemToPlan(e.target);
                 } else if (e.target.classList.contains('copy-task-to-plan')) {
                     this.copyTaskToPlan(e.target);
+                } else if (e.target.classList.contains('task-status-btn')) {
+                    this.toggleTaskStatus(e.target);
                 } else if (e.target.classList.contains('move-up-task')) {
                     this.moveTaskOrder(e.target, 'up');
                 } else if (e.target.classList.contains('move-down-task')) {
@@ -263,6 +277,7 @@ class BusinessReportApp {
         taskWrapper.className = 'task-input-wrapper';
         
         taskWrapper.innerHTML = `
+            ${isResult ? '<button type="button" class="btn btn-icon task-status-btn" data-status="pending" title="未着手">×</button>' : ''}
             <div class="task-inputs">
                 <input type="text" class="task-input-main" placeholder="項目">
                 <input type="text" class="task-input-sub" placeholder="(詳細)">
@@ -713,6 +728,7 @@ class BusinessReportApp {
                         </div>
                         <div class="tasks-container">
                             <div class="task-input-wrapper">
+                                ${isResult ? '<button type="button" class="btn btn-icon task-status-btn" data-status="pending" title="未着手">×</button>' : ''}
                                 <div class="task-inputs">
                                     <input type="text" class="task-input-main" placeholder="${isResult ? '実施' : '予定'}項目">
                                     <input type="text" class="task-input-sub" placeholder="(詳細)">
@@ -1049,6 +1065,7 @@ class BusinessReportApp {
             const taskWrapper = document.createElement('div');
             taskWrapper.className = 'task-input-wrapper';
             taskWrapper.innerHTML = `
+                ${isResult ? '<button type="button" class="btn btn-icon task-status-btn" data-status="pending" title="未着手">×</button>' : ''}
                 <div class="task-inputs">
                     <input type="text" class="task-input-main" placeholder="${isResult ? '実施' : '予定'}項目" value="${mainText}">
                     <input type="text" class="task-input-sub" placeholder="(詳細)" value="${subText}">
@@ -1061,13 +1078,19 @@ class BusinessReportApp {
                 <div class="autocomplete-list"></div>
             `;
             tasksContainer.appendChild(taskWrapper);
+
+            // タスクステータスを復元
+            if (isResult) {
+                this.restoreTaskStatus(taskWrapper);
+            }
         });
-        
+
         // タスクが空の場合はデフォルトを1つ追加
         if (data.tasks.length === 0) {
             const defaultTaskWrapper = document.createElement('div');
             defaultTaskWrapper.className = 'task-input-wrapper';
             defaultTaskWrapper.innerHTML = `
+                ${isResult ? '<button type="button" class="btn btn-icon task-status-btn" data-status="pending" title="未着手">×</button>' : ''}
                 <div class="task-inputs">
                     <input type="text" class="task-input-main" placeholder="${isResult ? '実施' : '予定'}項目">
                     <input type="text" class="task-input-sub" placeholder="(詳細)">
@@ -1227,6 +1250,7 @@ class BusinessReportApp {
                 const taskWrapper = document.createElement('div');
                 taskWrapper.className = 'task-input-wrapper';
                 taskWrapper.innerHTML = `
+                    ${isResult ? '<button type="button" class="btn btn-icon task-status-btn" data-status="pending" title="未着手">×</button>' : ''}
                     <div class="task-inputs">
                         <input type="text" class="task-input-main" placeholder="${isResult ? '実施' : '予定'}項目">
                         <input type="text" class="task-input-sub" placeholder="(詳細)">
@@ -1315,12 +1339,14 @@ class BusinessReportApp {
         
         const isTargetResult = targetContainerId === 'resultsContainer';
         newTaskWrapper.innerHTML = `
+            ${isTargetResult ? '<button type="button" class="btn btn-icon task-status-btn" data-status="pending" title="未着手">×</button>' : ''}
             <div class="task-inputs">
                 <input type="text" class="task-input-main" placeholder="${isTargetResult ? '実施' : '予定'}項目" value="${mainValue}">
                 <input type="text" class="task-input-sub" placeholder="(詳細)" value="${subValue}">
                 <button type="button" class="btn btn-icon move-up-task" title="上に移動">↑</button>
                 <button type="button" class="btn btn-icon move-down-task" title="下に移動">↓</button>
                 <button type="button" class="btn btn-icon ${isTargetResult ? 'move-task-to-plan' : 'move-task-to-result'}" title="${isTargetResult ? '予定に移動' : '実績に移動'}">${isTargetResult ? '→' : '←'}</button>
+                ${isTargetResult ? '<button type="button" class="btn btn-icon copy-task-to-plan" title="予定に複写">⊃</button>' : ''}
                 <button type="button" class="btn btn-icon delete-task" title="項目削除">×</button>
             </div>
             <div class="autocomplete-list"></div>
@@ -1909,6 +1935,66 @@ class BusinessReportApp {
         this.showToast('タスクを予定に複写しました。', 'success');
     }
 
+    // タスクステータス管理
+    toggleTaskStatus(button) {
+        const currentStatus = button.getAttribute('data-status');
+        const statusCycle = ['pending', 'in-progress', 'completed'];
+        const currentIndex = statusCycle.indexOf(currentStatus);
+        const nextIndex = (currentIndex + 1) % statusCycle.length;
+        const nextStatus = statusCycle[nextIndex];
+
+        this.setTaskStatus(button, nextStatus);
+        this.saveTaskStatus(button, nextStatus);
+    }
+
+    setTaskStatus(button, status) {
+        const statusIcons = {
+            'pending': '×',
+            'in-progress': '◐',
+            'completed': '✓'
+        };
+
+        const statusTitles = {
+            'pending': '未着手',
+            'in-progress': '作業中',
+            'completed': '完了'
+        };
+
+        button.setAttribute('data-status', status);
+        button.textContent = statusIcons[status];
+        button.setAttribute('title', statusTitles[status]);
+    }
+
+    saveTaskStatus(button, status) {
+        const taskWrapper = button.closest('.task-input-wrapper');
+        const taskId = this.getTaskId(taskWrapper);
+        this.taskStatus[taskId] = status;
+        this.saveData();
+    }
+
+    getTaskId(taskWrapper) {
+        const mainInput = taskWrapper.querySelector('.task-input-main');
+        const subInput = taskWrapper.querySelector('.task-input-sub');
+        const itemGroup = taskWrapper.closest('.item-group');
+        const customerInput = itemGroup.querySelector('.customer-input');
+
+        // 顧客名 + メイン項目 + 詳細でユニークIDを生成
+        const customer = customerInput.value.trim();
+        const mainText = mainInput.value.trim();
+        const subText = subInput.value.trim();
+
+        return `${customer}|${mainText}|${subText}`;
+    }
+
+    restoreTaskStatus(taskWrapper) {
+        const statusButton = taskWrapper.querySelector('.task-status-btn');
+        if (!statusButton) return;
+
+        const taskId = this.getTaskId(taskWrapper);
+        const savedStatus = this.taskStatus[taskId] || 'pending';
+        this.setTaskStatus(statusButton, savedStatus);
+    }
+
     // カレンダー機能
     showCalendar() {
         this.currentCalendarDate = new Date();
@@ -2027,6 +2113,148 @@ class BusinessReportApp {
                 }
             }, 300);
         }
+    }
+
+    // 未着手・作業中のタスクを予定に反映
+    reflectTasksToPlan() {
+        const resultsContainer = document.getElementById('resultsContainer');
+        const itemGroups = resultsContainer.querySelectorAll('.item-group');
+        let processedCount = 0;
+
+        // 各プロジェクトを逆順で処理（削除による要素のずれを防ぐため）
+        Array.from(itemGroups).forEach(itemGroup => {
+            const customerInput = itemGroup.querySelector('.customer-input');
+            const customerName = customerInput.value.trim();
+
+            if (!customerName) return;
+
+            const taskWrappers = itemGroup.querySelectorAll('.task-input-wrapper');
+            const tasksToProcess = [];
+
+            // タスクを収集
+            taskWrappers.forEach(wrapper => {
+                const statusBtn = wrapper.querySelector('.task-status-btn');
+                const mainInput = wrapper.querySelector('.task-input-main');
+                const subInput = wrapper.querySelector('.task-input-sub');
+
+                if (!statusBtn || !mainInput || !mainInput.value.trim()) return;
+
+                const status = statusBtn.dataset.status;
+                if (status === 'pending' || status === 'in-progress') {
+                    tasksToProcess.push({
+                        wrapper,
+                        status,
+                        main: mainInput.value,
+                        sub: subInput.value || ''
+                    });
+                }
+            });
+
+            // タスクを逆順で処理（削除による要素のずれを防ぐため）
+            if (tasksToProcess.length > 0) {
+                tasksToProcess.reverse().forEach(task => {
+                    if (task.status === 'pending') {
+                        // 未着手は移動（元は削除される）
+                        this.moveTaskToTarget(task.wrapper, customerName, task.main, task.sub);
+                        processedCount++;
+                    } else if (task.status === 'in-progress') {
+                        // 作業中は複写（元は残る）
+                        let detailText = task.sub;
+                        if (detailText && !detailText.includes('続き')) {
+                            detailText = detailText + '・続き';
+                        } else if (!detailText) {
+                            detailText = '続き';
+                        }
+                        this.copyTaskToTarget(customerName, task.main, detailText);
+                        processedCount++;
+                    }
+                });
+            }
+        });
+
+        if (processedCount > 0) {
+            this.showToast(`${processedCount}件のタスクを予定に反映しました。`, 'success');
+            this.updatePreview();
+            this.updateSortButtonStates();
+        } else {
+            this.showToast('反映するタスクがありません。', 'warning');
+        }
+    }
+
+    // タスクを予定に移動
+    moveTaskToTarget(taskWrapper, customerName, mainText, subText) {
+        const plansContainer = document.getElementById('plansContainer');
+        let targetItemGroup = this.findOrCreateProjectInTarget(plansContainer, customerName);
+
+        // 予定にタスクを追加
+        const tasksContainer = targetItemGroup.querySelector('.tasks-container');
+        const newTaskWrapper = document.createElement('div');
+        newTaskWrapper.className = 'task-input-wrapper';
+        newTaskWrapper.innerHTML = `
+            <div class="task-inputs">
+                <input type="text" class="task-input-main" placeholder="予定項目" value="${mainText}">
+                <input type="text" class="task-input-sub" placeholder="(詳細)" value="${subText}">
+                <button type="button" class="btn btn-icon move-up-task" title="上に移動">↑</button>
+                <button type="button" class="btn btn-icon move-down-task" title="下に移動">↓</button>
+                <button type="button" class="btn btn-icon move-task-to-result" title="実績に移動">←</button>
+                <button type="button" class="btn btn-icon delete-task" title="項目削除">×</button>
+            </div>
+            <div class="autocomplete-list"></div>
+        `;
+        tasksContainer.appendChild(newTaskWrapper);
+
+        // 元のタスクを削除
+        taskWrapper.remove();
+    }
+
+    // タスクを予定に複写
+    copyTaskToTarget(customerName, mainText, subText) {
+        const plansContainer = document.getElementById('plansContainer');
+        let targetItemGroup = this.findOrCreateProjectInTarget(plansContainer, customerName);
+
+        // 予定にタスクを追加
+        const tasksContainer = targetItemGroup.querySelector('.tasks-container');
+        const newTaskWrapper = document.createElement('div');
+        newTaskWrapper.className = 'task-input-wrapper';
+        newTaskWrapper.innerHTML = `
+            <div class="task-inputs">
+                <input type="text" class="task-input-main" placeholder="予定項目" value="${mainText}">
+                <input type="text" class="task-input-sub" placeholder="(詳細)" value="${subText}">
+                <button type="button" class="btn btn-icon move-up-task" title="上に移動">↑</button>
+                <button type="button" class="btn btn-icon move-down-task" title="下に移動">↓</button>
+                <button type="button" class="btn btn-icon move-task-to-result" title="実績に移動">←</button>
+                <button type="button" class="btn btn-icon delete-task" title="項目削除">×</button>
+            </div>
+            <div class="autocomplete-list"></div>
+        `;
+        tasksContainer.appendChild(newTaskWrapper);
+    }
+
+    // ターゲットコンテナでプロジェクトを検索または作成
+    findOrCreateProjectInTarget(targetContainer, customerName) {
+        // 既存のプロジェクトを検索
+        const itemGroups = targetContainer.querySelectorAll('.item-group');
+        for (let itemGroup of itemGroups) {
+            const customerInput = itemGroup.querySelector('.customer-input');
+            if (customerInput && customerInput.value.trim() === customerName) {
+                return itemGroup;
+            }
+        }
+
+        // 既存のプロジェクトが見つからない場合、新しく作成
+        this.addItemGroup(targetContainer.id);
+        const newItemGroups = targetContainer.querySelectorAll('.item-group');
+        const newItemGroup = newItemGroups[newItemGroups.length - 1];
+        const newCustomerInput = newItemGroup.querySelector('.customer-input');
+        newCustomerInput.value = customerName;
+
+        // デフォルトのタスクを削除
+        const defaultTaskWrapper = newItemGroup.querySelector('.task-input-wrapper');
+        if (defaultTaskWrapper) {
+            defaultTaskWrapper.remove();
+        }
+
+        return newItemGroup;
     }
 }
 
