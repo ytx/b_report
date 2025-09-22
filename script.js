@@ -264,6 +264,7 @@ class BusinessReportApp {
         container.appendChild(itemGroup);
         this.setupItemGroupEvents(itemGroup);
         this.updateSortButtonStates();
+        this.saveCurrentSession();
     }
 
     // タスク入力フィールド追加
@@ -296,6 +297,7 @@ class BusinessReportApp {
         const newMainInput = taskWrapper.querySelector('.task-input-main');
         newMainInput.focus();
         this.updateSortButtonStates();
+        this.saveCurrentSession();
     }
 
     // 顧客フォーカス処理
@@ -636,6 +638,9 @@ class BusinessReportApp {
     moveToNextDay() {
         // 予定を実績に複写
         this.copyPlansToResults();
+        this.updatePreview();
+        this.updateSortButtonStates();
+        this.saveCurrentSession();
         this.showToast('予定を実績に複写し、日付を更新しました。', 'success');
     }
 
@@ -1030,6 +1035,7 @@ class BusinessReportApp {
         // プレビュー更新
         this.updatePreview();
         this.updateSortButtonStates();
+        this.saveCurrentSession();
     }
 
     // データ付きアイテムグループ追加
@@ -1212,6 +1218,7 @@ class BusinessReportApp {
         // コントロールボタンのイベントを再設定
         this.setupItemGroupEvents(newItemGroup);
         this.updatePreview();
+        this.saveCurrentSession();
     }
 
     // 項目削除
@@ -1230,6 +1237,7 @@ class BusinessReportApp {
             
             this.updateSortButtonStates();
             this.updatePreview();
+            this.saveCurrentSession();
         }
     }
 
@@ -1269,6 +1277,7 @@ class BusinessReportApp {
             
             this.updateSortButtonStates();
             this.updatePreview();
+            this.saveCurrentSession();
         }
     }
 
@@ -1383,6 +1392,7 @@ class BusinessReportApp {
         }
         
         this.updatePreview();
+        this.saveCurrentSession();
     }
 
     // プロジェクト並べ替え
@@ -1411,6 +1421,7 @@ class BusinessReportApp {
         
         this.updateSortButtonStates();
         this.updatePreview();
+        this.saveCurrentSession();
     }
 
     // タスク並べ替え
@@ -1439,6 +1450,7 @@ class BusinessReportApp {
         
         this.updateSortButtonStates();
         this.updatePreview();
+        this.saveCurrentSession();
     }
 
     // 並べ替えボタンの状態を更新
@@ -1484,22 +1496,25 @@ class BusinessReportApp {
     copyPlansToResults() {
         const plansData = this.getInputData('plansContainer');
         const resultsContainer = document.getElementById('resultsContainer');
-        
+
+        // 日付更新は予定データの有無に関わらず実行
+        const planDate = document.getElementById('planDate').value;
+        document.getElementById('resultDate').value = planDate;
+
+        // 次の日を予定日に設定
+        const nextDay = new Date(planDate);
+        nextDay.setDate(nextDay.getDate() + 1);
+        document.getElementById('planDate').value = this.formatDate(nextDay);
+
         if (plansData.length === 0) {
+            // 予定データがない場合は実績をクリアして終了
+            resultsContainer.innerHTML = '';
+            this.addItemGroup('resultsContainer');
             return;
         }
         
         // 実績をクリア
         resultsContainer.innerHTML = '';
-        
-        // 予定の日付を実績日に設定
-        const planDate = document.getElementById('planDate').value;
-        document.getElementById('resultDate').value = planDate;
-        
-        // 次の日を予定日に設定
-        const nextDay = new Date(planDate);
-        nextDay.setDate(nextDay.getDate() + 1);
-        document.getElementById('planDate').value = this.formatDate(nextDay);
         
         // 予定データを実績に複写
         plansData.forEach((planItem, index) => {
@@ -1531,12 +1546,14 @@ class BusinessReportApp {
                 const taskWrapper = document.createElement('div');
                 taskWrapper.className = 'task-input-wrapper';
                 taskWrapper.innerHTML = `
+                    <button type="button" class="btn btn-icon task-status-btn" data-status="pending" title="未着手">×</button>
                     <div class="task-inputs">
                         <input type="text" class="task-input-main" placeholder="実施項目" value="${mainText}">
                         <input type="text" class="task-input-sub" placeholder="(詳細)" value="${subText}">
                         <button type="button" class="btn btn-icon move-up-task" title="上に移動">↑</button>
                         <button type="button" class="btn btn-icon move-down-task" title="下に移動">↓</button>
                         <button type="button" class="btn btn-icon move-task-to-plan" title="予定に移動">→</button>
+                        <button type="button" class="btn btn-icon copy-task-to-plan" title="予定に複写">⊃</button>
                         <button type="button" class="btn btn-icon delete-task" title="項目削除">×</button>
                     </div>
                     <div class="autocomplete-list"></div>
@@ -1549,34 +1566,8 @@ class BusinessReportApp {
         
         // 予定をクリア
         const plansContainer = document.getElementById('plansContainer');
-        plansContainer.innerHTML = `
-            <div class="item-group">
-                <div class="item-controls">
-                    <button type="button" class="btn btn-icon move-up-project" title="上に移動">↑</button>
-                    <button type="button" class="btn btn-icon move-down-project" title="下に移動">↓</button>
-                    <button type="button" class="btn btn-icon move-to-result" title="実績に移動">←</button>
-                    <button type="button" class="btn btn-icon delete-item" title="削除">×</button>
-                </div>
-                <div class="customer-input-wrapper">
-                    <input type="text" class="customer-input" placeholder="顧客・プロジェクト名">
-                    <div class="autocomplete-list"></div>
-                </div>
-                <div class="tasks-container">
-                    <div class="task-input-wrapper">
-                        <div class="task-inputs">
-                            <input type="text" class="task-input-main" placeholder="予定項目">
-                            <input type="text" class="task-input-sub" placeholder="(詳細)">
-                            <button type="button" class="btn btn-icon move-up-task" title="上に移動">↑</button>
-                            <button type="button" class="btn btn-icon move-down-task" title="下に移動">↓</button>
-                            <button type="button" class="btn btn-icon move-task-to-result" title="実績に移動">←</button>
-                            <button type="button" class="btn btn-icon delete-task" title="項目削除">×</button>
-                        </div>
-                        <div class="autocomplete-list"></div>
-                    </div>
-                </div>
-                <button type="button" class="btn btn-small add-task-btn">項目追加</button>
-            </div>
-        `;
+        plansContainer.innerHTML = '';
+        this.addItemGroup('plansContainer');
         
         this.updateSortButtonStates();
         this.updatePreview();
@@ -1843,6 +1834,7 @@ class BusinessReportApp {
         this.setupItemGroupEvents(newItemGroup);
         this.updatePreview();
         this.updateSortButtonStates();
+        this.saveCurrentSession();
 
         this.showToast('プロジェクトを予定に複写しました。', 'success');
     }
@@ -1931,6 +1923,7 @@ class BusinessReportApp {
 
         this.updatePreview();
         this.updateSortButtonStates();
+        this.saveCurrentSession();
 
         this.showToast('タスクを予定に複写しました。', 'success');
     }
@@ -1945,6 +1938,7 @@ class BusinessReportApp {
 
         this.setTaskStatus(button, nextStatus);
         this.saveTaskStatus(button, nextStatus);
+        this.saveCurrentSession();
     }
 
     setTaskStatus(button, status) {
@@ -2176,6 +2170,7 @@ class BusinessReportApp {
             this.showToast(`${processedCount}件のタスクを予定に反映しました。`, 'success');
             this.updatePreview();
             this.updateSortButtonStates();
+            this.saveCurrentSession();
         } else {
             this.showToast('反映するタスクがありません。', 'warning');
         }
