@@ -246,6 +246,7 @@ class BusinessReportApp {
             </div>
             <div class="tasks-container">
                 <div class="task-input-wrapper">
+                    ${isResult ? '<button type="button" class="btn btn-icon task-status-btn" data-status="pending" title="未着手">×</button>' : ''}
                     <div class="task-inputs">
                         <input type="text" class="task-input-main" placeholder="${isResult ? '実施' : '予定'}項目">
                         <input type="text" class="task-input-sub" placeholder="(詳細)">
@@ -2167,6 +2168,9 @@ class BusinessReportApp {
         });
 
         if (processedCount > 0) {
+            // タスクがないプロジェクトを削除
+            this.removeEmptyProjects();
+
             this.showToast(`${processedCount}件のタスクを予定に反映しました。`, 'success');
             this.updatePreview();
             this.updateSortButtonStates();
@@ -2174,6 +2178,59 @@ class BusinessReportApp {
         } else {
             this.showToast('反映するタスクがありません。', 'warning');
         }
+    }
+
+    // 空のプロジェクト（タスクがないプロジェクト）を削除
+    removeEmptyProjects() {
+        const containers = ['resultsContainer', 'plansContainer'];
+
+        containers.forEach(containerId => {
+            const container = document.getElementById(containerId);
+            const itemGroups = container.querySelectorAll('.item-group');
+
+            itemGroups.forEach(itemGroup => {
+                const customerInput = itemGroup.querySelector('.customer-input');
+                const taskWrappers = itemGroup.querySelectorAll('.task-input-wrapper');
+
+                // タスクがあるかチェック（空でないタスクがあるか）
+                const hasValidTasks = Array.from(taskWrappers).some(wrapper => {
+                    const mainInput = wrapper.querySelector('.task-input-main');
+                    return mainInput && mainInput.value.trim();
+                });
+
+                // 顧客名とタスクの両方が空の場合（未入力のデフォルトプロジェクト）
+                const isEmptyDefault = !customerInput.value.trim() && !hasValidTasks;
+
+                // 以下の場合に削除:
+                // 1. 顧客名があるがタスクがない
+                // 2. 顧客名もタスクも空（未入力のデフォルトプロジェクト）で、かつ他に有効なプロジェクトが存在する
+                if (customerInput && customerInput.value.trim() && !hasValidTasks) {
+                    itemGroup.remove();
+                } else if (isEmptyDefault) {
+                    // 他に有効なプロジェクトがあるかチェック
+                    const allItemGroups = container.querySelectorAll('.item-group');
+                    const hasOtherValidProjects = Array.from(allItemGroups).some(group => {
+                        if (group === itemGroup) return false; // 自分自身は除外
+                        const otherCustomerInput = group.querySelector('.customer-input');
+                        const otherTaskWrappers = group.querySelectorAll('.task-input-wrapper');
+                        const hasOtherValidTasks = Array.from(otherTaskWrappers).some(wrapper => {
+                            const mainInput = wrapper.querySelector('.task-input-main');
+                            return mainInput && mainInput.value.trim();
+                        });
+                        return otherCustomerInput && (otherCustomerInput.value.trim() || hasOtherValidTasks);
+                    });
+
+                    if (hasOtherValidProjects) {
+                        itemGroup.remove();
+                    }
+                }
+            });
+
+            // コンテナが空になった場合、デフォルトのアイテムグループを追加
+            if (container.children.length === 0) {
+                this.addItemGroup(containerId);
+            }
+        });
     }
 
     // タスクを予定に移動
