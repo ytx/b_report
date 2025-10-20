@@ -848,59 +848,69 @@ class BusinessReportApp {
         }
     }
 
-    // データエクスポート
+    // データエクスポート（完全データ移行対応）
     exportData() {
         const exportData = {
-            settings: {
+            version: '1.0',
+            exportDate: new Date().toISOString(),
+            data: {
                 customers: this.data.customers,
-                tasks: this.data.tasks
+                tasks: this.data.tasks,
+                reports: this.data.reports
             },
-            reports: this.data.reports.map(r => r.markdown).join('\n\n---\n\n')
+            taskStatus: this.taskStatus || {}
         };
-        
-        // 設定データ（JSON）
-        const settingsBlob = new Blob([JSON.stringify(exportData.settings, null, 2)], 
+
+        // 完全データをJSON形式で1ファイルにエクスポート
+        const dataBlob = new Blob([JSON.stringify(exportData, null, 2)],
             { type: 'application/json' });
-        const settingsUrl = URL.createObjectURL(settingsBlob);
-        const settingsLink = document.createElement('a');
-        settingsLink.href = settingsUrl;
-        settingsLink.download = `business-report-settings-${new Date().toISOString().split('T')[0]}.json`;
-        settingsLink.click();
-        
-        // レポートデータ（Markdown）
-        let reportsUrl = null;
-        if (exportData.reports.trim()) {
-            const reportsBlob = new Blob([exportData.reports], { type: 'text/markdown' });
-            reportsUrl = URL.createObjectURL(reportsBlob);
-            const reportsLink = document.createElement('a');
-            reportsLink.href = reportsUrl;
-            reportsLink.download = `business-reports-${new Date().toISOString().split('T')[0]}.md`;
-            reportsLink.click();
-        }
-        
-        URL.revokeObjectURL(settingsUrl);
-        if (reportsUrl) {
-            URL.revokeObjectURL(reportsUrl);
-        }
+        const dataUrl = URL.createObjectURL(dataBlob);
+        const dataLink = document.createElement('a');
+        dataLink.href = dataUrl;
+        dataLink.download = `business-report-complete-${new Date().toISOString().split('T')[0]}.json`;
+        dataLink.click();
+
+        URL.revokeObjectURL(dataUrl);
+
+        this.showToast('すべてのデータをエクスポートしました。', 'success');
     }
 
-    // データインポート
+    // データインポート（完全データ移行対応）
     importData(e) {
         const file = e.target.files[0];
         if (!file) return;
-        
+
         const reader = new FileReader();
         reader.onload = (e) => {
             try {
                 if (file.name.endsWith('.json')) {
                     const importedData = JSON.parse(e.target.result);
-                    if (importedData.customers && importedData.tasks) {
-                        if (confirm('設定データをインポートしますか？既存のデータは上書きされます。')) {
+
+                    // 完全データ形式のチェック（新形式）
+                    if (importedData.version && importedData.data) {
+                        if (confirm('すべてのデータをインポートしますか？既存のデータは完全に上書きされます。')) {
+                            // 完全データの復元
+                            this.data.customers = importedData.data.customers || [];
+                            this.data.tasks = importedData.data.tasks || [];
+                            this.data.reports = importedData.data.reports || [];
+                            this.taskStatus = importedData.taskStatus || {};
+
+                            this.saveData();
+                            this.updateHistoryList();
+                            this.updateHistoryDisplay();
+                            this.showToast('すべてのデータをインポートしました。', 'success');
+                        }
+                    }
+                    // 旧形式の設定データ（customers, tasks のみ）
+                    else if (importedData.customers && importedData.tasks) {
+                        if (confirm('設定データをインポートしますか？既存の設定データは上書きされます。\n（過去レポートは保持されます）')) {
                             this.data.customers = importedData.customers;
                             this.data.tasks = importedData.tasks;
                             this.saveData();
                             this.showToast('設定データをインポートしました。', 'success');
                         }
+                    } else {
+                        this.showToast('JSONファイルの形式が正しくありません。', 'error');
                     }
                 } else if (file.name.endsWith('.md')) {
                     const markdownContent = e.target.result;
@@ -917,11 +927,12 @@ class BusinessReportApp {
                     this.showToast('対応していないファイル形式です。JSON(.json)またはMarkdown(.md)ファイルを選択してください。', 'error');
                 }
             } catch (error) {
+                console.error('Import error:', error);
                 this.showToast('ファイルの読み込みに失敗しました。', 'error');
             }
         };
         reader.readAsText(file);
-        
+
         // ファイル選択をクリア
         e.target.value = '';
     }
