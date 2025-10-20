@@ -1209,18 +1209,20 @@ class BusinessReportApp {
             taskWrapper.className = 'task-input-wrapper';
             const isTargetResult = targetContainerId === 'resultsContainer';
             taskWrapper.innerHTML = `
+                ${isTargetResult ? '<button type="button" class="btn btn-icon task-status-btn" data-status="pending" title="未着手">×</button>' : ''}
                 <div class="task-inputs">
                     <input type="text" class="task-input-main" placeholder="項目" value="${task.main}">
                     <input type="text" class="task-input-sub" placeholder="(詳細)" value="${task.sub}">
                     <button type="button" class="btn btn-icon move-up-task" title="上に移動">↑</button>
                     <button type="button" class="btn btn-icon move-down-task" title="下に移動">↓</button>
                     <button type="button" class="btn btn-icon ${isTargetResult ? 'move-task-to-plan' : 'move-task-to-result'}" title="${isTargetResult ? '予定に移動' : '実績に移動'}">${isTargetResult ? '→' : '←'}</button>
+                    ${isTargetResult ? '<button type="button" class="btn btn-icon copy-task-to-plan" title="予定に複写">⊃</button>' : ''}
                     <button type="button" class="btn btn-icon delete-task" title="項目削除">×</button>
                 </div>
                 <div class="autocomplete-list"></div>
             `;
             newTasksContainer.appendChild(taskWrapper);
-            
+
             // イベント委譲により自動的に処理される
         });
         
@@ -1821,12 +1823,14 @@ class BusinessReportApp {
             const taskWrapper = document.createElement('div');
             taskWrapper.className = 'task-input-wrapper';
 
-            // 詳細に「・続き」を追加
+            // 詳細に「・続き」を追加（既に「続き」が含まれている場合はスキップ）
             let newSubValue = task.sub;
-            if (newSubValue.trim()) {
-                newSubValue = newSubValue + '・続き';
-            } else {
-                newSubValue = '続き';
+            if (!newSubValue.includes('続き')) {
+                if (newSubValue.trim()) {
+                    newSubValue = newSubValue + '・続き';
+                } else {
+                    newSubValue = '続き';
+                }
             }
 
             taskWrapper.innerHTML = `
@@ -1911,12 +1915,14 @@ class BusinessReportApp {
         const newTaskWrapper = document.createElement('div');
         newTaskWrapper.className = 'task-input-wrapper';
 
-        // 詳細に「・続き」を追加
+        // 詳細に「・続き」を追加（既に「続き」が含まれている場合はスキップ）
         let newSubValue = subValue;
-        if (newSubValue.trim()) {
-            newSubValue = newSubValue + '・続き';
-        } else {
-            newSubValue = '続き';
+        if (!newSubValue.includes('続き')) {
+            if (newSubValue.trim()) {
+                newSubValue = newSubValue + '・続き';
+            } else {
+                newSubValue = '続き';
+            }
         }
 
         newTaskWrapper.innerHTML = `
