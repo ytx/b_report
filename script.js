@@ -129,7 +129,6 @@ class BusinessReportApp {
 
         // 過去レポート関連
         document.getElementById('loadHistoryBtn').addEventListener('click', () => this.loadHistory());
-        document.getElementById('downloadHistoryBtn').addEventListener('click', () => this.downloadHistory());
         document.getElementById('deleteHistoryBtn').addEventListener('click', () => this.deleteHistory());
 
         // 過去レポート選択時の表示更新
@@ -668,6 +667,7 @@ class BusinessReportApp {
     // 現在のレポート保存
     saveCurrentReport(markdown) {
         const resultDate = document.getElementById('resultDate').value;
+        const resultEndDate = document.getElementById('resultEndDate').value;
         const planDate = document.getElementById('planDate').value;
         const results = this.getInputData('resultsContainer');
         const plans = this.getInputData('plansContainer');
@@ -675,6 +675,7 @@ class BusinessReportApp {
         const report = {
             id: resultDate,
             resultDate,
+            resultEndDate,
             planDate,
             results,
             plans,
@@ -815,6 +816,7 @@ class BusinessReportApp {
         // レポートデータを読み込み
         this.loadReportData({
             resultDate: report.resultDate,
+            resultEndDate: report.resultEndDate || '',
             planDate: report.planDate,
             results: report.results || [],
             plans: report.plans || []
@@ -932,19 +934,8 @@ class BusinessReportApp {
                     } else {
                         this.showToast('JSONファイルの形式が正しくありません。', 'error');
                     }
-                } else if (file.name.endsWith('.md')) {
-                    const markdownContent = e.target.result;
-                    const parsedData = this.parseMarkdownReport(markdownContent);
-                    if (parsedData) {
-                        if (confirm('Markdownレポートをインポートして現在の入力内容を上書きしますか？')) {
-                            this.loadReportData(parsedData);
-                            this.showToast('Markdownレポートをインポートしました。', 'success');
-                        }
-                    } else {
-                        this.showToast('Markdownファイルの形式が正しくありません。', 'error');
-                    }
                 } else {
-                    this.showToast('対応していないファイル形式です。JSON(.json)またはMarkdown(.md)ファイルを選択してください。', 'error');
+                    this.showToast('JSONファイルを選択してください。', 'error');
                 }
             } catch (error) {
                 console.error('Import error:', error);
@@ -1036,6 +1027,9 @@ class BusinessReportApp {
         // 日付設定
         if (data.resultDate) {
             document.getElementById('resultDate').value = data.resultDate;
+        }
+        if (data.resultEndDate !== undefined) {
+            document.getElementById('resultEndDate').value = data.resultEndDate || '';
         }
         if (data.planDate) {
             document.getElementById('planDate').value = data.planDate;
