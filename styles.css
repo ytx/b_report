@@ -252,6 +252,11 @@ header h1 {
     gap: 10px;
 }
 
+.date-range-sep {
+    color: var(--text-secondary);
+    font-weight: 600;
+}
+
 .date-group label {
     font-weight: 600;
     color: var(--text-secondary);

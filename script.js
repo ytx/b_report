@@ -74,6 +74,16 @@ class BusinessReportApp {
         // 日付変更
         document.getElementById('resultDate').addEventListener('change', (e) => {
             if (e.target.value) {
+                document.getElementById('resultEndDate').value = e.target.value;
+                const selected = new Date(e.target.value);
+                selected.setDate(selected.getDate() + 1);
+                document.getElementById('planDate').value = this.formatDate(selected);
+            }
+            this.updatePreview();
+            this.saveCurrentSession();
+        });
+        document.getElementById('resultEndDate').addEventListener('change', (e) => {
+            if (e.target.value) {
                 const selected = new Date(e.target.value);
                 selected.setDate(selected.getDate() + 1);
                 document.getElementById('planDate').value = this.formatDate(selected);
@@ -518,6 +528,7 @@ class BusinessReportApp {
     // プレビュー更新
     updatePreview() {
         const resultDate = document.getElementById('resultDate').value;
+        const resultEndDate = document.getElementById('resultEndDate').value;
         const planDate = document.getElementById('planDate').value;
         
         if (!resultDate || !planDate) return;
@@ -525,7 +536,7 @@ class BusinessReportApp {
         const results = this.getInputData('resultsContainer');
         const plans = this.getInputData('plansContainer');
         
-        const markdown = this.generateMarkdown(resultDate, planDate, results, plans);
+        const markdown = this.generateMarkdown(resultDate, resultEndDate, planDate, results, plans);
         document.getElementById('markdownPreview').textContent = markdown;
     }
 
@@ -565,13 +576,17 @@ class BusinessReportApp {
     }
 
     // マークダウン生成
-    generateMarkdown(resultDate, planDate, results, plans) {
+    generateMarkdown(resultDate, resultEndDate, planDate, results, plans) {
         let markdown = '';
         
         // 実績セクション
         if (results.length > 0) {
-            const formattedResultDate = this.formatDisplayDate(resultDate);
-            markdown += `- ${formattedResultDate}実績\n`;
+            const formattedStart = this.formatDisplayDate(resultDate);
+            const formattedEnd = resultEndDate ? this.formatDisplayDate(resultEndDate) : formattedStart;
+            const resultHeader = formattedEnd !== formattedStart
+                ? `${formattedStart}〜${formattedEnd}の実績`
+                : `${formattedStart}実績`;
+            markdown += `- ${resultHeader}\n`;
             results.forEach(result => {
                 markdown += `    - ${result.customer}\n`;
                 result.tasks.forEach(task => {
@@ -1519,6 +1534,7 @@ class BusinessReportApp {
         // 日付更新は予定データの有無に関わらず実行
         const planDate = document.getElementById('planDate').value;
         document.getElementById('resultDate').value = planDate;
+        document.getElementById('resultEndDate').value = planDate;
 
         // 次の日を予定日に設定
         const nextDay = new Date(planDate);
@@ -1687,6 +1703,7 @@ class BusinessReportApp {
     saveCurrentSession() {
         const sessionData = {
             resultDate: document.getElementById('resultDate').value,
+            resultEndDate: document.getElementById('resultEndDate').value,
             planDate: document.getElementById('planDate').value,
             results: this.getInputData('resultsContainer'),
             plans: this.getInputData('plansContainer'),
@@ -1706,6 +1723,9 @@ class BusinessReportApp {
             // 日付設定
             if (sessionData.resultDate) {
                 document.getElementById('resultDate').value = sessionData.resultDate;
+            }
+            if (sessionData.resultEndDate) {
+                document.getElementById('resultEndDate').value = sessionData.resultEndDate;
             }
             if (sessionData.planDate) {
                 document.getElementById('planDate').value = sessionData.planDate;
