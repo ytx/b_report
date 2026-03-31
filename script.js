@@ -72,7 +72,12 @@ class BusinessReportApp {
     // イベントリスナー設定
     setupEventListeners() {
         // 日付変更
-        document.getElementById('resultDate').addEventListener('change', () => {
+        document.getElementById('resultDate').addEventListener('change', (e) => {
+            if (e.target.value) {
+                const selected = new Date(e.target.value);
+                selected.setDate(selected.getDate() + 1);
+                document.getElementById('planDate').value = this.formatDate(selected);
+            }
             this.updatePreview();
             this.saveCurrentSession();
         });
