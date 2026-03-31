@@ -1403,6 +1403,7 @@ class BusinessReportApp {
             const defaultTaskWrapper = document.createElement('div');
             defaultTaskWrapper.className = 'task-input-wrapper';
             defaultTaskWrapper.innerHTML = `
+                ${isSourceResult ? '<button type="button" class="btn btn-icon task-status-btn" data-status="pending" title="未着手">×</button>' : ''}
                 <div class="task-inputs">
                     <input type="text" class="task-input-main" placeholder="${isSourceResult ? '実施' : '予定'}項目">
                     <input type="text" class="task-input-sub" placeholder="(詳細)">
