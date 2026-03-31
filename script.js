@@ -1203,48 +1203,87 @@ class BusinessReportApp {
             this.showToast('移動するデータがありません。', 'warning');
             return;
         }
-        
-        // 新しいアイテムグループを作成
-        this.addItemGroup(targetContainerId);
-        const newItemGroups = targetContainer.querySelectorAll('.item-group');
-        const newItemGroup = newItemGroups[newItemGroups.length - 1];
-        
-        // データを設定
-        const newCustomerInput = newItemGroup.querySelector('.customer-input');
-        newCustomerInput.value = customerValue;
-        
-        // イベント委譲により自動的に処理される
-        
-        const newTasksContainer = newItemGroup.querySelector('.tasks-container');
-        newTasksContainer.innerHTML = '';
-        
-        taskData.forEach(task => {
-            const taskWrapper = document.createElement('div');
-            taskWrapper.className = 'task-input-wrapper';
-            const isTargetResult = targetContainerId === 'resultsContainer';
-            taskWrapper.innerHTML = `
-                ${isTargetResult ? '<button type="button" class="btn btn-icon task-status-btn" data-status="pending" title="未着手">×</button>' : ''}
-                <div class="task-inputs">
-                    <input type="text" class="task-input-main" placeholder="項目" value="${task.main}">
-                    <input type="text" class="task-input-sub" placeholder="(詳細)" value="${task.sub}">
-                    <button type="button" class="btn btn-icon move-up-task" title="上に移動">↑</button>
-                    <button type="button" class="btn btn-icon move-down-task" title="下に移動">↓</button>
-                    <button type="button" class="btn btn-icon ${isTargetResult ? 'move-task-to-plan' : 'move-task-to-result'}" title="${isTargetResult ? '予定に移動' : '実績に移動'}">${isTargetResult ? '→' : '←'}</button>
-                    ${isTargetResult ? '<button type="button" class="btn btn-icon copy-task-to-plan" title="予定に複写">⊃</button>' : ''}
-                    <button type="button" class="btn btn-icon delete-task" title="項目削除">×</button>
-                </div>
-                <div class="autocomplete-list"></div>
-            `;
-            newTasksContainer.appendChild(taskWrapper);
 
-            // イベント委譲により自動的に処理される
-        });
+        const isTargetResult = targetContainerId === 'resultsContainer';
+
+        // 移動先に同じ顧客のプロジェクトがあればマージ、なければ新規作成
+        let targetItemGroup = null;
+        const existingGroups = targetContainer.querySelectorAll('.item-group');
+        for (const group of existingGroups) {
+            const ci = group.querySelector('.customer-input');
+            if (ci && ci.value.trim() === customerValue.trim()) {
+                targetItemGroup = group;
+                break;
+            }
+        }
+
+        if (targetItemGroup) {
+            // 既存プロジェクトにマージ
+            const targetTasksContainer = targetItemGroup.querySelector('.tasks-container');
+
+            // 空タスクのみなら削除
+            const existingTasks = targetTasksContainer.querySelectorAll('.task-input-wrapper');
+            const allEmpty = Array.from(existingTasks).every(w => {
+                const main = w.querySelector('.task-input-main');
+                return !main || !main.value.trim();
+            });
+            if (allEmpty) targetTasksContainer.innerHTML = '';
+
+            taskData.forEach(task => {
+                const taskWrapper = document.createElement('div');
+                taskWrapper.className = 'task-input-wrapper';
+                taskWrapper.innerHTML = `
+                    ${isTargetResult ? '<button type="button" class="btn btn-icon task-status-btn" data-status="pending" title="未着手">×</button>' : ''}
+                    <div class="task-inputs">
+                        <input type="text" class="task-input-main" placeholder="${isTargetResult ? '実施' : '予定'}項目" value="${task.main}">
+                        <input type="text" class="task-input-sub" placeholder="(詳細)" value="${task.sub}">
+                        <button type="button" class="btn btn-icon move-up-task" title="上に移動">↑</button>
+                        <button type="button" class="btn btn-icon move-down-task" title="下に移動">↓</button>
+                        <button type="button" class="btn btn-icon ${isTargetResult ? 'move-task-to-plan' : 'move-task-to-result'}" title="${isTargetResult ? '予定に移動' : '実績に移動'}">${isTargetResult ? '→' : '←'}</button>
+                        ${isTargetResult ? '<button type="button" class="btn btn-icon copy-task-to-plan" title="予定に複写">⊃</button>' : ''}
+                        <button type="button" class="btn btn-icon delete-task" title="項目削除">×</button>
+                    </div>
+                    <div class="autocomplete-list"></div>
+                `;
+                targetTasksContainer.appendChild(taskWrapper);
+            });
+        } else {
+            // 新しいアイテムグループを作成
+            this.addItemGroup(targetContainerId);
+            const newItemGroups = targetContainer.querySelectorAll('.item-group');
+            targetItemGroup = newItemGroups[newItemGroups.length - 1];
+
+            const newCustomerInput = targetItemGroup.querySelector('.customer-input');
+            newCustomerInput.value = customerValue;
+
+            const newTasksContainer = targetItemGroup.querySelector('.tasks-container');
+            newTasksContainer.innerHTML = '';
+
+            taskData.forEach(task => {
+                const taskWrapper = document.createElement('div');
+                taskWrapper.className = 'task-input-wrapper';
+                taskWrapper.innerHTML = `
+                    ${isTargetResult ? '<button type="button" class="btn btn-icon task-status-btn" data-status="pending" title="未着手">×</button>' : ''}
+                    <div class="task-inputs">
+                        <input type="text" class="task-input-main" placeholder="${isTargetResult ? '実施' : '予定'}項目" value="${task.main}">
+                        <input type="text" class="task-input-sub" placeholder="(詳細)" value="${task.sub}">
+                        <button type="button" class="btn btn-icon move-up-task" title="上に移動">↑</button>
+                        <button type="button" class="btn btn-icon move-down-task" title="下に移動">↓</button>
+                        <button type="button" class="btn btn-icon ${isTargetResult ? 'move-task-to-plan' : 'move-task-to-result'}" title="${isTargetResult ? '予定に移動' : '実績に移動'}">${isTargetResult ? '→' : '←'}</button>
+                        ${isTargetResult ? '<button type="button" class="btn btn-icon copy-task-to-plan" title="予定に複写">⊃</button>' : ''}
+                        <button type="button" class="btn btn-icon delete-task" title="項目削除">×</button>
+                    </div>
+                    <div class="autocomplete-list"></div>
+                `;
+                newTasksContainer.appendChild(taskWrapper);
+            });
+        }
         
         // 元のアイテムを削除
         itemGroup.remove();
         
         // コントロールボタンのイベントを再設定
-        this.setupItemGroupEvents(newItemGroup);
+        this.setupItemGroupEvents(targetItemGroup);
         this.updatePreview();
         this.saveCurrentSession();
     }
