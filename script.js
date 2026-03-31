@@ -1371,6 +1371,17 @@ class BusinessReportApp {
         
         // 移動先にタスクを追加
         const targetTasksContainer = targetItemGroup.querySelector('.tasks-container');
+
+        // 移動先に空タスクのみある場合は削除してから追加
+        const existingTasks = targetTasksContainer.querySelectorAll('.task-input-wrapper');
+        const allEmpty = Array.from(existingTasks).every(w => {
+            const main = w.querySelector('.task-input-main');
+            return !main || !main.value.trim();
+        });
+        if (allEmpty && existingTasks.length > 0) {
+            targetTasksContainer.innerHTML = '';
+        }
+
         const newTaskWrapper = document.createElement('div');
         newTaskWrapper.className = 'task-input-wrapper';
         
