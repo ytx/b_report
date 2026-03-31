@@ -707,6 +707,17 @@ header h1 {
     position: relative;
 }
 
+.confirm-modal {
+    max-width: 420px;
+    min-height: auto;
+}
+
+.confirm-modal .modal-body p {
+    margin: 0;
+    line-height: 1.6;
+    color: var(--text-primary);
+}
+
 .calendar-navigation {
     display: flex;
     justify-content: space-between;

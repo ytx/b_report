@@ -206,6 +206,22 @@
         </div>
     </div>
 
+    <!-- 未完了タスク確認モーダル -->
+    <div id="unfinishedTasksModal" class="modal" style="display: none;">
+        <div class="modal-content confirm-modal">
+            <div class="modal-header">
+                <h2>未完了のタスクがあります</h2>
+            </div>
+            <div class="modal-body">
+                <p id="unfinishedTasksMessage"></p>
+            </div>
+            <div class="modal-footer">
+                <button id="discardUnfinishedBtn" class="btn btn-danger">削除して進む</button>
+                <button id="keepUnfinishedBtn" class="btn btn-primary">残して進む</button>
+            </div>
+        </div>
+    </div>
+
     <script src="script.js"></script>
 </body>
 </html>

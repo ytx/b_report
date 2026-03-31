@@ -655,9 +655,17 @@ class BusinessReportApp {
     }
 
     // 次の日へ進む
-    moveToNextDay() {
-        // 予定を実績に複写
-        this.copyPlansToResults();
+    async moveToNextDay() {
+        const unfinishedData = this.getUnfinishedResultData();
+        let keepUnfinished = false;
+        if (unfinishedData.length > 0) {
+            const totalCount = unfinishedData.reduce((sum, d) => sum + d.tasks.length, 0);
+            const choice = await this.showUnfinishedTasksDialog(totalCount);
+            if (choice === null) return; // キャンセル
+            keepUnfinished = choice;
+        }
+
+        this.copyPlansToResults(keepUnfinished, unfinishedData);
         this.updatePreview();
         this.updateSortButtonStates();
         this.saveCurrentSession();
@@ -1572,7 +1580,7 @@ class BusinessReportApp {
     }
 
     // 予定を実績に複写
-    copyPlansToResults() {
+    copyPlansToResults(keepUnfinished = false, unfinishedData = []) {
         const plansData = this.getInputData('plansContainer');
         const resultsContainer = document.getElementById('resultsContainer');
 
@@ -1590,6 +1598,9 @@ class BusinessReportApp {
             // 予定データがない場合は実績をクリアして終了
             resultsContainer.innerHTML = '';
             this.addItemGroup('resultsContainer');
+            if (keepUnfinished && unfinishedData.length > 0) {
+                this.addUnfinishedItemGroups(resultsContainer, unfinishedData);
+            }
             return;
         }
         
@@ -1643,6 +1654,11 @@ class BusinessReportApp {
                 // イベント委譲により自動的に処理される
             });
         });
+
+        // 未完了タスクを末尾に追加
+        if (keepUnfinished && unfinishedData.length > 0) {
+            this.addUnfinishedItemGroups(resultsContainer, unfinishedData);
+        }
         
         // 予定をクリア
         const plansContainer = document.getElementById('plansContainer');
@@ -1652,7 +1668,79 @@ class BusinessReportApp {
         this.updateSortButtonStates();
         this.updatePreview();
     }
-    
+
+    // 未完了の実績タスクデータを取得（未着手・作業中）
+    getUnfinishedResultData() {
+        const container = document.getElementById('resultsContainer');
+        const itemGroups = container.querySelectorAll('.item-group');
+        const data = [];
+
+        itemGroups.forEach(group => {
+            const customerInput = group.querySelector('.customer-input');
+            const customer = customerInput.value.trim();
+            if (!customer) return;
+
+            const taskWrappers = group.querySelectorAll('.task-input-wrapper');
+            const unfinishedTasks = [];
+            taskWrappers.forEach(wrapper => {
+                const statusBtn = wrapper.querySelector('.task-status-btn');
+                if (!statusBtn) return;
+                const status = statusBtn.getAttribute('data-status');
+                if (status === 'pending' || status === 'in-progress') {
+                    const mainInput = wrapper.querySelector('.task-input-main');
+                    const subInput = wrapper.querySelector('.task-input-sub');
+                    const main = mainInput ? mainInput.value.trim() : '';
+                    const sub = subInput ? subInput.value.trim() : '';
+                    if (main) unfinishedTasks.push({ main, sub });
+                }
+            });
+
+            if (unfinishedTasks.length > 0) {
+                data.push({ customer, tasks: unfinishedTasks });
+            }
+        });
+
+        return data;
+    }
+
+    // 未完了タスク確認ダイアログを表示（Promise を返す: true=残す, false=削除, null=キャンセル）
+    showUnfinishedTasksDialog(count) {
+        return new Promise((resolve) => {
+            const modal = document.getElementById('unfinishedTasksModal');
+            document.getElementById('unfinishedTasksMessage').textContent =
+                `実績に未完了のタスク（未着手・作業中）が ${count} 件あります。どうしますか？`;
+            modal.style.display = 'flex';
+
+            const keepBtn = document.getElementById('keepUnfinishedBtn');
+            const discardBtn = document.getElementById('discardUnfinishedBtn');
+
+            const cleanup = () => {
+                keepBtn.removeEventListener('click', handleKeep);
+                discardBtn.removeEventListener('click', handleDiscard);
+                modal.removeEventListener('click', handleOutsideClick);
+                modal.style.display = 'none';
+            };
+
+            const handleKeep = () => { cleanup(); resolve(true); };
+            const handleDiscard = () => { cleanup(); resolve(false); };
+            const handleOutsideClick = (e) => {
+                if (e.target === modal) { cleanup(); resolve(null); }
+            };
+
+            keepBtn.addEventListener('click', handleKeep);
+            discardBtn.addEventListener('click', handleDiscard);
+            modal.addEventListener('click', handleOutsideClick);
+        });
+    }
+
+    // 未完了タスクグループを実績に追加（タスク状態は this.taskStatus から復元）
+    addUnfinishedItemGroups(container, unfinishedData) {
+        unfinishedData.forEach(group => {
+            const taskStrings = group.tasks.map(t => t.sub ? `${t.main}(${t.sub})` : t.main);
+            this.addItemGroupWithData(container, { customer: group.customer, tasks: taskStrings }, true);
+        });
+    }
+
     // 設定編集表示
     showSettingsEditor() {
         const modal = document.getElementById('settingsModal');
