@@ -14,6 +14,10 @@ class BusinessReportApp {
         };
         this.selectedIndex = -1;
         this.currentAutocompleteInput = null;
+        this.undoStack = [];
+        this.redoStack = [];
+        this.MAX_UNDO_STEPS = 50;
+        this._preEditSnapshot = null;
         
         this.init();
     }
@@ -30,6 +34,7 @@ class BusinessReportApp {
         this.updateSortButtonStates();
         this.updateHistoryList();
         this.updateHistoryDisplay();
+        this.updateUndoRedoButtons();
     }
 
     // データの読み込み
@@ -72,7 +77,13 @@ class BusinessReportApp {
     // イベントリスナー設定
     setupEventListeners() {
         // 日付変更
+        ['resultDate', 'resultEndDate', 'planDate'].forEach(id => {
+            document.getElementById(id).addEventListener('focus', () => {
+                this._preEditSnapshot = this.captureState();
+            });
+        });
         document.getElementById('resultDate').addEventListener('change', (e) => {
+            this._applyPreEditSnapshot();
             if (e.target.value) {
                 document.getElementById('resultEndDate').value = e.target.value;
                 const selected = new Date(e.target.value);
@@ -83,6 +94,7 @@ class BusinessReportApp {
             this.saveCurrentSession();
         });
         document.getElementById('resultEndDate').addEventListener('change', (e) => {
+            this._applyPreEditSnapshot();
             if (e.target.value) {
                 const selected = new Date(e.target.value);
                 selected.setDate(selected.getDate() + 1);
@@ -92,15 +104,18 @@ class BusinessReportApp {
             this.saveCurrentSession();
         });
         document.getElementById('planDate').addEventListener('change', () => {
+            this._applyPreEditSnapshot();
             this.updatePreview();
             this.saveCurrentSession();
         });
 
         // 顧客・プロジェクト追加ボタン
         document.getElementById('addResultBtn').addEventListener('click', () => {
+            this.pushUndoSnapshot();
             this.addItemGroup('resultsContainer');
         });
         document.getElementById('addPlanBtn').addEventListener('click', () => {
+            this.pushUndoSnapshot();
             this.addItemGroup('plansContainer');
         });
 
@@ -108,6 +123,25 @@ class BusinessReportApp {
         document.getElementById('copyBtn').addEventListener('click', () => this.copyToClipboard());
         document.getElementById('saveBtn').addEventListener('click', () => this.saveReport());
         document.getElementById('nextDayBtn').addEventListener('click', () => this.moveToNextDay());
+
+        // Undo / Redo ボタン
+        document.getElementById('undoBtn').addEventListener('click', () => this.undo());
+        document.getElementById('redoBtn').addEventListener('click', () => this.redo());
+
+        // キーボードショートカット（テキスト入力中は除く）
+        document.addEventListener('keydown', (e) => {
+            const activeEl = document.activeElement;
+            const isTextField = activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA');
+            if (isTextField) return;
+            if (e.ctrlKey && !e.shiftKey && (e.key === 'z' || e.key === 'Z')) {
+                e.preventDefault();
+                this.undo();
+            } else if ((e.ctrlKey && e.shiftKey && (e.key === 'z' || e.key === 'Z')) ||
+                       (e.ctrlKey && !e.shiftKey && (e.key === 'y' || e.key === 'Y'))) {
+                e.preventDefault();
+                this.redo();
+            }
+        });
 
         // クリアボタン
         document.getElementById('clearBtn').addEventListener('click', () => this.clearForm());
@@ -144,7 +178,10 @@ class BusinessReportApp {
         document.getElementById('nextMonth').addEventListener('click', () => this.changeMonth(1));
 
         // タスク反映ボタン
-        document.getElementById('reflectTasksBtn').addEventListener('click', () => this.reflectTasksToPlan());
+        document.getElementById('reflectTasksBtn').addEventListener('click', () => {
+            this.pushUndoSnapshot();
+            this.reflectTasksToPlan();
+        });
 
         // 初期の入力フィールドにイベントを追加
         this.setupInputEvents();
@@ -159,28 +196,40 @@ class BusinessReportApp {
             // イベント委譲で削除ボタンのクリックを処理
             container.addEventListener('click', (e) => {
                 if (e.target.classList.contains('delete-item')) {
+                    this.pushUndoSnapshot();
                     this.deleteItem(e.target);
                 } else if (e.target.classList.contains('move-to-plan') || e.target.classList.contains('move-to-result')) {
+                    this.pushUndoSnapshot();
                     this.moveItem(e.target);
                 } else if (e.target.classList.contains('move-up-project')) {
+                    this.pushUndoSnapshot();
                     this.moveProject(e.target, 'up');
                 } else if (e.target.classList.contains('move-down-project')) {
+                    this.pushUndoSnapshot();
                     this.moveProject(e.target, 'down');
                 } else if (e.target.classList.contains('delete-task')) {
+                    this.pushUndoSnapshot();
                     this.deleteTask(e.target);
                 } else if (e.target.classList.contains('move-task-to-plan') || e.target.classList.contains('move-task-to-result')) {
+                    this.pushUndoSnapshot();
                     this.moveTask(e.target);
                 } else if (e.target.classList.contains('copy-to-plan')) {
+                    this.pushUndoSnapshot();
                     this.copyItemToPlan(e.target);
                 } else if (e.target.classList.contains('copy-task-to-plan')) {
+                    this.pushUndoSnapshot();
                     this.copyTaskToPlan(e.target);
                 } else if (e.target.classList.contains('task-status-btn')) {
+                    this.pushUndoSnapshot();
                     this.toggleTaskStatus(e.target);
                 } else if (e.target.classList.contains('move-up-task')) {
+                    this.pushUndoSnapshot();
                     this.moveTaskOrder(e.target, 'up');
                 } else if (e.target.classList.contains('move-down-task')) {
+                    this.pushUndoSnapshot();
                     this.moveTaskOrder(e.target, 'down');
                 } else if (e.target.classList.contains('add-task-btn')) {
+                    this.pushUndoSnapshot();
                     this.addTaskInput(e.target);
                 }
             });
@@ -200,6 +249,11 @@ class BusinessReportApp {
             
             // イベント委譲でフォーカスイベントを処理
             container.addEventListener('focus', (e) => {
+                if (e.target.classList.contains('customer-input') ||
+                    e.target.classList.contains('task-input-main') ||
+                    e.target.classList.contains('task-input-sub')) {
+                    this._preEditSnapshot = this.captureState();
+                }
                 if (e.target.classList.contains('customer-input')) {
                     this.handleCustomerFocus(e);
                 } else if (e.target.classList.contains('task-input-main')) {
@@ -218,6 +272,7 @@ class BusinessReportApp {
             container.addEventListener('blur', (e) => {
                 if (e.target.classList.contains('customer-input') || e.target.classList.contains('task-input-main')) {
                     this.hideAutocomplete(e.target);
+                    this._applyPreEditSnapshot();
                     // 入力内容変更時にセッション保存
                     this.saveCurrentSession();
                 }
@@ -227,6 +282,7 @@ class BusinessReportApp {
             container.addEventListener('blur', (e) => {
                 if (e.target.classList.contains('task-input-sub')) {
                     // 詳細入力変更時にもセッション保存
+                    this._applyPreEditSnapshot();
                     this.saveCurrentSession();
                 }
             }, true);
@@ -665,6 +721,7 @@ class BusinessReportApp {
             keepUnfinished = choice;
         }
 
+        this.pushUndoSnapshot();
         this.copyPlansToResults(keepUnfinished, unfinishedData);
         this.updatePreview();
         this.updateSortButtonStates();
@@ -784,6 +841,9 @@ class BusinessReportApp {
             this.setDefaultDates();
             this.updateSortButtonStates();
             this.updatePreview();
+            this.undoStack = [];
+            this.redoStack = [];
+            this.updateUndoRedoButtons();
         }
     }
 
@@ -928,6 +988,9 @@ class BusinessReportApp {
                             this.saveData();
                             this.updateHistoryList();
                             this.updateHistoryDisplay();
+                            this.undoStack = [];
+                            this.redoStack = [];
+                            this.updateUndoRedoButtons();
                             this.showToast('すべてのデータをインポートしました。', 'success');
                         }
                     }
@@ -937,6 +1000,9 @@ class BusinessReportApp {
                             this.data.customers = importedData.customers;
                             this.data.tasks = importedData.tasks;
                             this.saveData();
+                            this.undoStack = [];
+                            this.redoStack = [];
+                            this.updateUndoRedoButtons();
                             this.showToast('設定データをインポートしました。', 'success');
                         }
                     } else {
@@ -1301,19 +1367,17 @@ class BusinessReportApp {
         const itemGroup = button.closest('.item-group');
         const container = itemGroup.closest('.items-container');
         
-        if (confirm('この項目を削除しますか？')) {
-            itemGroup.remove();
-            
-            // コンテナが空の場合、デフォルトのアイテムグループを追加
-            if (container.children.length === 0) {
-                const containerId = container.id;
-                this.addItemGroup(containerId);
-            }
-            
-            this.updateSortButtonStates();
-            this.updatePreview();
-            this.saveCurrentSession();
+        itemGroup.remove();
+        
+        // コンテナが空の場合、デフォルトのアイテムグループを追加
+        if (container.children.length === 0) {
+            const containerId = container.id;
+            this.addItemGroup(containerId);
         }
+        
+        this.updateSortButtonStates();
+        this.updatePreview();
+        this.saveCurrentSession();
     }
 
     // タスク削除
@@ -1321,39 +1385,37 @@ class BusinessReportApp {
         const taskWrapper = button.closest('.task-input-wrapper');
         const tasksContainer = taskWrapper.closest('.tasks-container');
         
-        if (confirm('このタスクを削除しますか？')) {
-            taskWrapper.remove();
+        taskWrapper.remove();
+        
+        // タスクが全て削除された場合、デフォルトのタスクを追加
+        if (tasksContainer.children.length === 0) {
+            const itemGroup = tasksContainer.closest('.item-group');
+            const container = itemGroup.closest('.items-container');
+            const isResult = container.id === 'resultsContainer';
             
-            // タスクが全て削除された場合、デフォルトのタスクを追加
-            if (tasksContainer.children.length === 0) {
-                const itemGroup = tasksContainer.closest('.item-group');
-                const container = itemGroup.closest('.items-container');
-                const isResult = container.id === 'resultsContainer';
-                
-                const taskWrapper = document.createElement('div');
-                taskWrapper.className = 'task-input-wrapper';
-                taskWrapper.innerHTML = `
-                    ${isResult ? '<button type="button" class="btn btn-icon task-status-btn" data-status="pending" title="未着手">×</button>' : ''}
-                    <div class="task-inputs">
-                        <input type="text" class="task-input-main" placeholder="${isResult ? '実施' : '予定'}項目">
-                        <input type="text" class="task-input-sub" placeholder="(詳細)">
-                        <button type="button" class="btn btn-icon move-up-task" title="上に移動">↑</button>
-                        <button type="button" class="btn btn-icon move-down-task" title="下に移動">↓</button>
-                        <button type="button" class="btn btn-icon ${isResult ? 'move-task-to-plan' : 'move-task-to-result'}" title="${isResult ? '予定に移動' : '実績に移動'}">${isResult ? '→' : '←'}</button>
-                        ${isResult ? '<button type="button" class="btn btn-icon copy-task-to-plan" title="予定に複写">⊃</button>' : ''}
-                        <button type="button" class="btn btn-icon delete-task" title="項目削除">×</button>
-                    </div>
-                    <div class="autocomplete-list"></div>
-                `;
-                tasksContainer.appendChild(taskWrapper);
-                
-                // イベント委譲により自動的に処理される
-            }
+            const taskWrapper = document.createElement('div');
+            taskWrapper.className = 'task-input-wrapper';
+            taskWrapper.innerHTML = `
+                ${isResult ? '<button type="button" class="btn btn-icon task-status-btn" data-status="pending" title="未着手">×</button>' : ''}
+                <div class="task-inputs">
+                    <input type="text" class="task-input-main" placeholder="${isResult ? '実施' : '予定'}項目">
+                    <input type="text" class="task-input-sub" placeholder="(詳細)">
+                    <button type="button" class="btn btn-icon move-up-task" title="上に移動">↑</button>
+                    <button type="button" class="btn btn-icon move-down-task" title="下に移動">↓</button>
+                    <button type="button" class="btn btn-icon ${isResult ? 'move-task-to-plan' : 'move-task-to-result'}" title="${isResult ? '予定に移動' : '実績に移動'}">${isResult ? '→' : '←'}</button>
+                    ${isResult ? '<button type="button" class="btn btn-icon copy-task-to-plan" title="予定に複写">⊃</button>' : ''}
+                    <button type="button" class="btn btn-icon delete-task" title="項目削除">×</button>
+                </div>
+                <div class="autocomplete-list"></div>
+            `;
+            tasksContainer.appendChild(taskWrapper);
             
-            this.updateSortButtonStates();
-            this.updatePreview();
-            this.saveCurrentSession();
+            // イベント委譲により自動的に処理される
         }
+        
+        this.updateSortButtonStates();
+        this.updatePreview();
+        this.saveCurrentSession();
     }
 
     // タスク移動
@@ -1739,6 +1801,89 @@ class BusinessReportApp {
             const taskStrings = group.tasks.map(t => t.sub ? `${t.main}(${t.sub})` : t.main);
             this.addItemGroupWithData(container, { customer: group.customer, tasks: taskStrings }, true);
         });
+    }
+
+    // === Undo / Redo ===
+
+    captureState() {
+        return {
+            resultDate: document.getElementById('resultDate').value,
+            resultEndDate: document.getElementById('resultEndDate').value,
+            planDate: document.getElementById('planDate').value,
+            results: this.getInputData('resultsContainer'),
+            plans: this.getInputData('plansContainer'),
+            taskStatus: JSON.parse(JSON.stringify(this.taskStatus || {}))
+        };
+    }
+
+    pushUndoSnapshot() {
+        this.undoStack.push(this.captureState());
+        if (this.undoStack.length > this.MAX_UNDO_STEPS) {
+            this.undoStack.shift();
+        }
+        this.redoStack = [];
+        this.updateUndoRedoButtons();
+    }
+
+    _applyPreEditSnapshot() {
+        if (!this._preEditSnapshot) return;
+        const current = this.captureState();
+        if (JSON.stringify(current) !== JSON.stringify(this._preEditSnapshot)) {
+            this.undoStack.push(this._preEditSnapshot);
+            if (this.undoStack.length > this.MAX_UNDO_STEPS) this.undoStack.shift();
+            this.redoStack = [];
+            this.updateUndoRedoButtons();
+        }
+        this._preEditSnapshot = null;
+    }
+
+    undo() {
+        if (this.undoStack.length === 0) return;
+        this.redoStack.push(this.captureState());
+        this.restoreState(this.undoStack.pop());
+        this.showToast('元に戻しました', 'info');
+    }
+
+    redo() {
+        if (this.redoStack.length === 0) return;
+        this.undoStack.push(this.captureState());
+        this.restoreState(this.redoStack.pop());
+        this.showToast('やり直しました', 'info');
+    }
+
+    restoreState(snapshot) {
+        document.getElementById('resultDate').value = snapshot.resultDate || '';
+        document.getElementById('resultEndDate').value = snapshot.resultEndDate || '';
+        document.getElementById('planDate').value = snapshot.planDate || '';
+        this.taskStatus = snapshot.taskStatus || {};
+
+        const resultsContainer = document.getElementById('resultsContainer');
+        resultsContainer.innerHTML = '';
+        if (snapshot.results && snapshot.results.length > 0) {
+            snapshot.results.forEach(item => this.addItemGroupWithData(resultsContainer, item, true));
+        } else {
+            this.addItemGroup('resultsContainer');
+        }
+
+        const plansContainer = document.getElementById('plansContainer');
+        plansContainer.innerHTML = '';
+        if (snapshot.plans && snapshot.plans.length > 0) {
+            snapshot.plans.forEach(item => this.addItemGroupWithData(plansContainer, item, false));
+        } else {
+            this.addItemGroup('plansContainer');
+        }
+
+        this.updateSortButtonStates();
+        this.updatePreview();
+        this.saveCurrentSession();
+        this.updateUndoRedoButtons();
+    }
+
+    updateUndoRedoButtons() {
+        const undoBtn = document.getElementById('undoBtn');
+        const redoBtn = document.getElementById('redoBtn');
+        if (undoBtn) undoBtn.disabled = this.undoStack.length === 0;
+        if (redoBtn) redoBtn.disabled = this.redoStack.length === 0;
     }
 
     // 設定編集表示
